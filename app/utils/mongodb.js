@@ -2,25 +2,18 @@ import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable inside .env.local"
-  );
+  throw new Error("❌ MONGODB_URI is not defined!");
 }
 
 let client;
 let clientPromise;
 
-if (process.env.NODE_ENV === "development") {
-  // Use global variable in development to prevent hot-reloading issues
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri);
-    global._mongoClientPromise = client.connect();
-  }
-  clientPromise = global._mongoClientPromise;
-} else {
-  // Use a new MongoClient instance in production
-  client = new MongoClient(uri);
+try {
+  client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 }); // 5 sec timeout
   clientPromise = client.connect();
+  console.log("✅ MongoDB Connected Successfully");
+} catch (error) {
+  console.error("❌ MongoDB Connection Error:", error.message);
 }
 
 export default clientPromise;
