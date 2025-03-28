@@ -1,7 +1,6 @@
-// app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import clientPromise from "../../../utils/mongodb";
+import clientPromise from "../../utils/mongodb";
 
 export const authOptions = {
   providers: [

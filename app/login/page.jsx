@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react"; // Add useEffect
-import { signIn, useSession } from "next-auth/react"; // Add useSession
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -21,20 +21,19 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const callbackUrl = role === "player" ? "/players" : "/dashboard";
     const result = await signIn("credentials", {
-      redirect: false,
       email,
       password,
       role,
+      callbackUrl, // Let next-auth handle redirect
+      redirect: false, // Still false to check result
     });
 
     if (result?.error) {
-      setError(result.error); // Show exact error from next-auth
-    } else {
-      // Wait for session to sync, then redirect
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Increase to 1s
-      router.push(role === "player" ? "/players" : "/dashboard");
-      router.refresh();
+      setError(result.error);
+    } else if (result?.ok) {
+      router.push(callbackUrl); // Manual push if needed
     }
   };
 
