@@ -12,7 +12,6 @@ export default function Login() {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  // Redirect if already logged in
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role) {
       router.push(session.user.role === "player" ? "/players" : "/dashboard");
@@ -26,14 +25,18 @@ export default function Login() {
       email,
       password,
       role,
-      callbackUrl, // Let next-auth handle redirect
-      redirect: false, // Still false to check result
+      callbackUrl,
+      redirect: false,
     });
 
     if (result?.error) {
-      setError(result.error);
+      setError(
+        result.error === "CredentialsSignin"
+          ? "Invalid email, password, or role"
+          : result.error
+      );
     } else if (result?.ok) {
-      router.push(callbackUrl); // Manual push if needed
+      router.push(callbackUrl);
     }
   };
 

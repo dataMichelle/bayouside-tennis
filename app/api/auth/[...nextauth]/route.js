@@ -11,13 +11,16 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
         role: { label: "Role", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         try {
+          if (!process.env.MONGODB_URI) {
+            throw new Error("MONGODB_URI is not defined");
+          }
           const client = await clientPromise;
           const db = client.db("bayou-side-tennis");
           const user = await db.collection("users").findOne({
             email: credentials.email,
-            password: credentials.password,
+            password: credentials.password, // Plain text for now
           });
           if (user) {
             return {
@@ -30,7 +33,7 @@ export const authOptions = {
           return null;
         } catch (error) {
           console.error("Authorize error:", error.message);
-          throw new Error("Authentication failed");
+          return null; // Return null instead of throwing to avoid 500
         }
       },
     }),
