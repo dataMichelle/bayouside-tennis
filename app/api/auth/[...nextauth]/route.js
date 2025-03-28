@@ -13,27 +13,37 @@ export const authOptions = {
       },
       async authorize(credentials, req) {
         try {
-          if (!process.env.MONGODB_URI) {
-            throw new Error("MONGODB_URI is not defined");
-          }
+          console.log("🟡 Received credentials:", credentials);
+
           const client = await clientPromise;
           const db = client.db("bayou-side-tennis");
-          const user = await db.collection("users").findOne({
-            email: credentials.email,
-            password: credentials.password, // Plain text for now
-          });
-          if (user) {
-            return {
-              id: user._id.toString(),
-              name: user.name,
-              email: user.email,
-              role: user.role,
-            };
+
+          const user = await db
+            .collection("users")
+            .findOne({ email: credentials.email });
+
+          console.log("🟡 User found in database:", user);
+
+          if (!user) {
+            console.log("❌ No user found with this email.");
+            return null; // No user in DB
           }
-          return null;
+
+          if (user.password !== credentials.password) {
+            console.log("❌ Password mismatch.");
+            return null; // Wrong password
+          }
+
+          console.log("✅ Login successful for:", user.email);
+          return {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          };
         } catch (error) {
-          console.error("Authorize error:", error.message);
-          return null; // Return null instead of throwing to avoid 500
+          console.error("❌ Error in authorize():", error);
+          return null;
         }
       },
     }),
