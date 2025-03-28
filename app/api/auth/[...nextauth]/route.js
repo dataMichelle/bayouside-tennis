@@ -2,13 +2,6 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { MongoClient } from "mongodb";
 
-const client = new MongoClient(process.env.MONGODB_URI);
-
-async function connectToDatabase() {
-  await client.connect();
-  return client.db("bayou-side-tennis");
-}
-
 export const authOptions = {
   providers: [
     CredentialsProvider({
@@ -19,22 +12,35 @@ export const authOptions = {
         role: { label: "Role", type: "text" },
       },
       async authorize(credentials) {
-        const db = await connectToDatabase();
-        const user = await db.collection("users").findOne({
-          email: credentials.email,
-          password: credentials.password, // Plain text for now
-        });
-        if (user) {
-          console.log("Authorize - User:", user); // Debug
-          return {
-            id: user._id.toString(),
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          };
+        let client;
+        try {
+          client = new MongoClient(process.env.MONGODB_URI);
+          await client.connect();
+          const db = client.db("bayou-side-tennis");
+          const user = await db.collection("users").findOne({
+            email: credentials.email,
+            password: credentials.password, // Plain text for now
+          });
+          if (user) {
+            console.log("Authorize - User:", user);
+            return {
+              id: user._id.toString(),
+              name: user.name,
+              email: user.email,
+              role: user.role,
+            };
+          }
+          console.log("Authorize - No user found for:", credentials.email);
+          return null;
+        } catch (error) {
+          console.error("Authorize error:", {
+            message: error.message,
+            stack: error.stack,
+          });
+          throw new Error("Authentication failed");
+        } finally {
+          if (client) await client.close();
         }
-        console.log("Authorize - No user found for:", credentials.email);
-        return null;
       },
     }),
   ],
@@ -49,7 +55,7 @@ export const authOptions = {
     async session({ session, token }) {
       session.user.id = token.id;
       session.user.role = token.role;
-      console.log("Session Callback - Session:", session); // Debug
+      console.log("Session Callback - Session:", session);
       return session;
     },
   },
@@ -59,6 +65,7 @@ export const authOptions = {
   session: {
     strategy: "jwt",
   },
+  secret: process.env.NEXTAUTH_SECRET, // Ensure this is set
 };
 
 const handler = NextAuth(authOptions);
