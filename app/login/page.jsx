@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react"; // Add useEffect
+import { signIn, useSession } from "next-auth/react"; // Add useSession
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -10,6 +10,14 @@ export default function Login() {
   const [role, setRole] = useState("");
   const [error, setError] = useState(null);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role) {
+      router.push(session.user.role === "player" ? "/players" : "/dashboard");
+    }
+  }, [status, session, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,10 +29,10 @@ export default function Login() {
     });
 
     if (result?.error) {
-      setError("Invalid email or password");
+      setError(result.error); // Show exact error from next-auth
     } else {
-      console.log("Login - Result:", result); // Debug login result
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Wait for session
+      // Wait for session to sync, then redirect
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Increase to 1s
       router.push(role === "player" ? "/players" : "/dashboard");
       router.refresh();
     }
@@ -32,8 +40,8 @@ export default function Login() {
 
   return (
     <main className="p-6">
-      <h1 className="text-3xl font-bold  mb-6 text-center">Log In</h1>
-      <div className="bg-swamp-200  dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6 text-center">Log In</h1>
+      <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label
@@ -65,7 +73,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md  text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none autofill:bg-primary-50 autofill:dark:bg-neutrals-900 :-webkit-autofill:bg-primary-50 :-webkit-autofill:dark:bg-neutrals-900"
+              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none autofill:bg-primary-50 autofill:dark:bg-neutrals-900 :-webkit-autofill:bg-primary-50 :-webkit-autofill:dark:bg-neutrals-900"
               placeholder="••••••••"
             />
           </div>

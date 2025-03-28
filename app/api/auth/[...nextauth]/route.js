@@ -1,6 +1,7 @@
+// app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import clientPromise from "../../utils/mongodb";
+import clientPromise from "../../../utils/mongodb";
 
 export const authOptions = {
   providers: [
@@ -17,7 +18,7 @@ export const authOptions = {
           const db = client.db("bayou-side-tennis");
           const user = await db.collection("users").findOne({
             email: credentials.email,
-            password: credentials.password, // Plain text for now
+            password: credentials.password,
           });
           if (user) {
             return {
