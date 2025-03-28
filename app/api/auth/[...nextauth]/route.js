@@ -12,10 +12,10 @@ export const authOptions = {
         role: { label: "Role", type: "text" },
       },
       async authorize(credentials, req) {
-        console.log("🚨 DEBUG: authorize() function was called!");
-        console.log("🟡 Received credentials:", credentials);
-
         try {
+          console.log("🚨 DEBUG: authorize() function was called!");
+          console.log("🟡 Received credentials:", credentials);
+
           const client = await clientPromise;
           const db = client.db("bayou-side-tennis");
 
@@ -27,12 +27,13 @@ export const authOptions = {
 
           if (!user) {
             console.log("❌ No user found with this email.");
-            return null; // No user in DB
+            throw new Error("User does not exist.");
           }
 
-          if (user.password !== credentials.password) {
+          const isMatch = user.password === credentials.password; // If using plain text
+          if (!isMatch) {
             console.log("❌ Password mismatch.");
-            return null; // Wrong password
+            throw new Error("Invalid password.");
           }
 
           console.log("✅ Login successful for:", user.email);
@@ -43,8 +44,8 @@ export const authOptions = {
             role: user.role,
           };
         } catch (error) {
-          console.error("❌ Error in authorize():", error);
-          return null;
+          console.error("❌ ERROR in authorize():", error.message);
+          throw new Error(error.message); // This error triggers NextAuth's error page
         }
       },
     }),
