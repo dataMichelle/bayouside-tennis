@@ -1,26 +1,143 @@
+@import url("https://fonts.googleapis.com/css2?family=Barrio&family=Chelsea+Market&family=Nunito:ital,wght@0,200..1000;1,200..1000&family=Rubik+Distressed&display=swap");
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Swampy Colors */
+  --color-swamp-100: #e6f0e6;
+  --color-swamp-200: #cde0cd;
+  --color-swamp-300: #a3c4a3;
+  --color-swamp-400: #7aa67a;
+  --color-swamp-500: #517f51;
+  --color-swamp-600: #3a5c3a;
+  --color-taupe-100: #f0ece6;
+  --color-taupe-200: #e0d9cc;
+  --color-taupe-300: #c4b8a3;
+  --color-taupe-400: #a6987a; /* Ensure this color is defined */
+  --color-teal-100: #e6f0f0;
+  --color-teal-200: #cce0e0;
+  --color-teal-300: #a3c4c4;
+
+  /* Font Styles */
+  --font-nunito: "Nunito", sans-serif;
+  --font-swampy: "Rubik Distressed", cursive;
+  --font-chelsea: "Chelsea Market", cursive;
+  --font-rubik: "Rubik Distressed", cursive;
+  --font-barrio: "Barrio", cursive;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Base Styles */
+/* Default Background */
+/* body {
+  background: linear-gradient(
+    to top left,
+    var(--color-swamp-100),
+    var(--color-swamp-600)
+  );
+  background-size: cover;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+} */
+
+body.home {
+  position: relative;
+  background: url("/background.png") center/cover no-repeat;
+  background-size: cover;
+  background-repeat: no-repeat;
+  min-height: 100vh;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Gradient Overlay */
+body.home::after {
+  content: "";
+  position: absolute;
+  inset: 0; /* Covers the entire screen */
+  background: linear-gradient(
+    to bottom right,
+    rgba(34, 85, 34, 0.6),
+    rgba(255, 255, 255, 1)
+  );
+  z-index: -1;
+  pointer-events: none; /* Ensures the overlay doesn't interfere with interaction */
+}
+
+/* 🏠 Home Page */
+/* body.home {
+  background: linear-gradient(
+    to top left,
+    var(--color-swamp-100),
+    var(--color-swamp-600)
+  );
+} */
+
+/* ℹ️Inner Pages */
+body.about,
+body.booking,
+body.contact,
+body.coaches,
+body.players,
+body.signup,
+body.login {
+  position: relative;
+  background: url("/background.png") center/cover no-repeat;
+  background-size: cover;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+}
+
+/* Gradient Overlay */
+body.about::after,
+body.booking::after,
+body.contact::after,
+body.coaches::after,
+body.players::after,
+body.signup::after,
+body.login::after {
+  content: "";
+  position: absolute;
+  inset: 0; /* Covers the entire screen */
+  background: linear-gradient(
+    to bottom right,
+    rgba(34, 85, 34, 0.6),
+    rgba(255, 255, 255, 0.5)
+  );
+  z-index: -1;
+  pointer-events: none; /* Ensures the overlay doesn't interfere with interaction */
+}
+
+h1 {
+  color: var(--color-taupe-200);
+}
+
+@keyframes jiggle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-3px);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+  75% {
+    transform: translateY(-1.5px);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.animate-jiggle {
+  animation: jiggle 0.5s ease-in-out;
+}
+
+/* 3D Capsule Effect */
+.animate-3d-capsule {
+  background: radial-gradient(
+    circle at center,
+    var(--color-taupe-100) 0%,
+    var(--color-taupe-200) 70%,
+    var(--color-taupe-300) 100%
+  );
+  box-shadow: 0 8px 16px rgba(34, 85, 34, 0.6),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+  transform: perspective(1000px) rotateX(5deg);
 }
