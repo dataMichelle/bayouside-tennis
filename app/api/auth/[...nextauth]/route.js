@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { MongoClient } from "mongodb";
+import clientPromise from "../../utils/mongodb";
 
 export const authOptions = {
   providers: [
@@ -12,10 +12,8 @@ export const authOptions = {
         role: { label: "Role", type: "text" },
       },
       async authorize(credentials) {
-        let client;
         try {
-          client = new MongoClient(process.env.MONGODB_URI);
-          await client.connect();
+          const client = await clientPromise;
           const db = client.db("bayou-side-tennis");
           const user = await db.collection("users").findOne({
             email: credentials.email,
@@ -33,8 +31,6 @@ export const authOptions = {
         } catch (error) {
           console.error("Authorize error:", error.message);
           throw new Error("Authentication failed");
-        } finally {
-          if (client) await client.close();
         }
       },
     }),
