@@ -12,6 +12,8 @@ export const authOptions = {
         role: { label: "Role", type: "text" },
       },
       async authorize(credentials, req) {
+        throw new Error("🚨 DEBUG: authorize() function was called!");
+
         try {
           console.log("🟡 Received credentials:", credentials);
 
