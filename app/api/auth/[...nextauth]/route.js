@@ -12,11 +12,10 @@ export const authOptions = {
         role: { label: "Role", type: "text" },
       },
       async authorize(credentials, req) {
-        throw new Error("🚨 DEBUG: authorize() function was called!");
+        console.log("🚨 DEBUG: authorize() function was called!");
+        console.log("🟡 Received credentials:", credentials);
 
         try {
-          console.log("🟡 Received credentials:", credentials);
-
           const client = await clientPromise;
           const db = client.db("bayou-side-tennis");
 
