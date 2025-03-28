@@ -22,7 +22,6 @@ export const authOptions = {
             password: credentials.password, // Plain text for now
           });
           if (user) {
-            console.log("Authorize - User:", user);
             return {
               id: user._id.toString(),
               name: user.name,
@@ -30,13 +29,9 @@ export const authOptions = {
               role: user.role,
             };
           }
-          console.log("Authorize - No user found for:", credentials.email);
           return null;
         } catch (error) {
-          console.error("Authorize error:", {
-            message: error.message,
-            stack: error.stack,
-          });
+          console.error("Authorize error:", error.message);
           throw new Error("Authentication failed");
         } finally {
           if (client) await client.close();
@@ -55,7 +50,6 @@ export const authOptions = {
     async session({ session, token }) {
       session.user.id = token.id;
       session.user.role = token.role;
-      console.log("Session Callback - Session:", session);
       return session;
     },
   },
@@ -65,7 +59,7 @@ export const authOptions = {
   session: {
     strategy: "jwt",
   },
-  secret: process.env.NEXTAUTH_SECRET, // Ensure this is set
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);
