@@ -1,26 +1,42 @@
 "use client";
+
 import { useState, useEffect } from "react";
 
 export default function Coaches() {
   const [coaches, setCoaches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Fetch coaches on mount
   useEffect(() => {
-    fetch("/api/coaches")
-      .then((res) => res.json())
-      .then((data) => setCoaches(data))
-      .catch((error) => console.error("Error fetching coaches:", error));
+    const fetchCoaches = async () => {
+      try {
+        const res = await fetch("/api/coach");
+        if (!res.ok) {
+          throw new Error(`Failed to fetch coaches: ${res.status}`);
+        }
+        const data = await res.json();
+        setCoaches(data);
+      } catch (err) {
+        setError(err.message);
+        console.error("Error fetching coaches:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCoaches();
   }, []);
 
-  // Helper function to convert 24-hour time to 12-hour AM/PM
   const formatTimeTo12Hour = (time) => {
     if (!time) return "";
     const [hours, minutes] = time.split(":");
     const hourNum = parseInt(hours, 10);
     const period = hourNum >= 12 ? "PM" : "AM";
-    const adjustedHour = hourNum % 12 || 12; // Converts 0 to 12 for midnight, 13 to 1, etc.
+    const adjustedHour = hourNum % 12 || 12;
     return `${adjustedHour}:${minutes} ${period}`;
   };
+
+  if (loading) return <div>Loading coaches...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <main className="min-h-screen p-6">
@@ -65,7 +81,7 @@ export default function Coaches() {
           ))
         ) : (
           <p className="text-center text-neutrals-600 dark:text-neutrals-300 col-span-full">
-            Loading coaches...
+            No coaches available.
           </p>
         )}
       </div>
