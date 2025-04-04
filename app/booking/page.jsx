@@ -4,8 +4,10 @@ import { useState, useEffect } from "react";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { loadStripe } from "@stripe/stripe-js";
+import { useRouter, useSearchParams } from "next/navigation";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
 
-// Use environment variable for publishable key
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 );
@@ -22,10 +24,16 @@ export default function BookingPage() {
   const [ballMachine, setBallMachine] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [slotModalOpen, setSlotModalOpen] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState([]);
   const [pendingBookingIds, setPendingBookingIds] = useState([]);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedDaySlots, setSelectedDaySlots] = useState([]);
+  const [currentDay, setCurrentDay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -51,6 +59,14 @@ export default function BookingPage() {
           setCoaches(coachData);
           setBookings(bookingsData);
           setSettings(settingsData);
+
+          const success = searchParams.get("success");
+          const bookingIds = searchParams.get("bookingIds");
+          if (success === "true" && bookingIds) {
+            const ids = JSON.parse(decodeURIComponent(bookingIds));
+            await handlePaymentSuccess(ids);
+            router.replace("/booking");
+          }
         } catch (err) {
           setError(err.message);
         }
@@ -58,19 +74,21 @@ export default function BookingPage() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [searchParams, router]);
 
   const handleLogout = async () => {
     await signOut(auth);
   };
 
-  const formatTimeTo12Hour = (time) => {
+  const formatTimeTo12HourCDT = (time) => {
     if (!time) return "";
-    const [hours, minutes] = time.split(":");
-    const hourNum = parseInt(hours, 10);
-    const period = hourNum >= 12 ? "PM" : "AM";
-    const adjustedHour = hourNum % 12 || 12;
-    return `${adjustedHour}:${minutes} ${period}`;
+    const date = new Date(time);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "America/Chicago",
+    });
   };
 
   const parseTimeToMinutes = (time) => {
@@ -87,31 +105,53 @@ export default function BookingPage() {
     return time.padStart(5, "0");
   };
 
-  const generateHourlySlots = (startTime, endTime, day) => {
+  const generateHourlySlots = (startTime, endTime, day, date) => {
     const start = parseInt(startTime.split(":")[0], 10);
     const end = parseInt(endTime.split(":")[0], 10);
     const slots = [];
     for (let hour = start; hour < end; hour++) {
       const slotStart = `${hour.toString().padStart(2, "0")}:00`;
       const slotEnd = `${(hour + 1).toString().padStart(2, "0")}:00`;
-      slots.push({ day, startTime: slotStart, endTime: slotEnd });
+      const slotDate = new Date(date);
+      slotDate.setHours(hour, 0, 0, 0);
+      slots.push({
+        day,
+        startTime: slotStart,
+        endTime: slotEnd,
+        date: slotDate,
+      });
     }
     return slots;
   };
 
-  const getAvailabilityCheckboxes = () => {
-    const isBooked = (slot, coachId) => {
-      return bookings.some((booking) => {
+  const getAvailableSlotsForDay = (date) => {
+    if (!selectedCoach) return [];
+    const coach = coaches.find((c) => c._id === selectedCoach) || {
+      availability: [],
+    };
+    const dayName = date.toLocaleString("en-US", { weekday: "long" });
+    const dayAvailability = coach.availability.find(
+      (avail) => avail.day === dayName
+    );
+    if (!dayAvailability) return [];
+
+    const allSlots = generateHourlySlots(
+      dayAvailability.startTime,
+      dayAvailability.endTime,
+      dayName,
+      date
+    );
+    return allSlots.filter((slot) => {
+      return !bookings.some((booking) => {
         const sameCoach =
-          booking.coachId === coachId ||
-          (!booking.coachId && coachId === "no-coach");
-        const sameDay = booking.day ? slot.day === booking.day : true;
-        const slotStart = parseTimeToMinutes(slot.startTime);
-        const slotEnd = parseTimeToMinutes(slot.endTime);
-        const bookingStart = parseTimeToMinutes(
-          normalizeTime(booking.startTime)
-        );
-        const bookingEnd = parseTimeToMinutes(normalizeTime(booking.endTime));
+          booking.coachId === selectedCoach ||
+          (!booking.coachId && selectedCoach === "no-coach");
+        const bookingStart = new Date(booking.startTime);
+        const bookingEnd = new Date(booking.endTime);
+        const slotStart = new Date(slot.date);
+        slotStart.setHours(parseInt(slot.startTime.split(":")[0]), 0, 0, 0);
+        const slotEnd = new Date(slot.date);
+        slotEnd.setHours(parseInt(slot.endTime.split(":")[0]), 0, 0, 0);
         const timeOverlap =
           (bookingStart <= slotStart && slotStart < bookingEnd) ||
           (bookingStart < slotEnd && slotEnd <= bookingEnd) ||
@@ -119,90 +159,59 @@ export default function BookingPage() {
         const isPendingOrConfirmed = ["pending", "confirmed"].includes(
           booking.status
         );
-        return sameCoach && sameDay && timeOverlap && isPendingOrConfirmed;
+        return sameCoach && timeOverlap && isPendingOrConfirmed;
       });
-    };
+    });
+  };
 
-    if (selectedCoach === "no-coach") {
-      const availableSlots = [
-        { day: "Monday", startTime: "10:00", endTime: "11:00" },
-        { day: "Tuesday", startTime: "14:00", endTime: "15:00" },
-      ];
-      return availableSlots
-        .filter((slot) => !isBooked(slot, "no-coach"))
-        .map((slot, index) => (
-          <div key={index} className="flex items-center m-2">
-            <input
-              type="checkbox"
-              id={`slot-${index}`}
-              checked={selectedSlots.some(
-                (s) => s.day === slot.day && s.startTime === slot.startTime
-              )}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedSlots((prev) => [...prev, slot]);
-                } else {
-                  setSelectedSlots((prev) =>
-                    prev.filter(
-                      (s) =>
-                        s.day !== slot.day || s.startTime !== slot.startTime
-                    )
-                  );
-                }
-              }}
-              className="mr-2"
-            />
-            <label
-              htmlFor={`slot-${index}`}
-              className="text-neutrals-700 dark:text-neutrals-300"
-            >
-              {slot.day}: {formatTimeTo12Hour(slot.startTime)} -{" "}
-              {formatTimeTo12Hour(slot.endTime)}
-            </label>
-          </div>
-        ));
-    }
-    if (!selectedCoach) return [];
-    const coach = coaches.find((c) => c._id === selectedCoach);
-    if (!coach || !coach.availability) return [];
-    const allSlots = coach.availability.flatMap((slot) =>
-      generateHourlySlots(slot.startTime, slot.endTime, slot.day)
-    );
-    console.log(`All slots for ${coach.name}:`, allSlots);
-    const filteredSlots = allSlots.filter(
-      (slot) => !isBooked(slot, selectedCoach)
-    );
-    console.log(`Filtered slots for ${coach.name}:`, filteredSlots);
-    return filteredSlots.map((slot, index) => (
-      <div key={index} className="flex items-center m-2">
-        <input
-          type="checkbox"
-          id={`slot-${index}`}
-          checked={selectedSlots.some(
-            (s) => s.day === slot.day && s.startTime === slot.startTime
-          )}
-          onChange={(e) => {
-            if (e.target.checked) {
-              setSelectedSlots((prev) => [...prev, slot]);
-            } else {
-              setSelectedSlots((prev) =>
-                prev.filter(
-                  (s) => s.day !== slot.day || s.startTime !== slot.startTime
-                )
-              );
-            }
-          }}
-          className="mr-2"
-        />
-        <label
-          htmlFor={`slot-${index}`}
-          className="text-neutrals-700 dark:text-neutrals-300"
-        >
-          {slot.day}: {formatTimeTo12Hour(slot.startTime)} -{" "}
-          {formatTimeTo12Hour(slot.endTime)}
-        </label>
+  const tileContent = ({ date, view }) => {
+    if (view !== "month") return null;
+    const availableSlots = getAvailableSlotsForDay(date);
+    return availableSlots.length > 0 ? (
+      <div className="text-xs text-green-600">
+        {availableSlots.length} slots
       </div>
-    ));
+    ) : null;
+  };
+
+  const handleDateClick = (date) => {
+    const availableSlots = getAvailableSlotsForDay(date);
+    if (availableSlots.length > 0) {
+      setCurrentDay(date);
+      setSelectedDaySlots(
+        availableSlots.map((slot) => ({
+          ...slot,
+          isSelected: selectedSlots.some(
+            (s) =>
+              s.date.toISOString() === slot.date.toISOString() &&
+              s.startTime === slot.startTime
+          ),
+        }))
+      );
+      setSlotModalOpen(true);
+    }
+  };
+
+  const handleSlotToggle = (slot) => {
+    setSelectedDaySlots((prev) =>
+      prev.map((s) =>
+        s.startTime === slot.startTime &&
+        s.date.toISOString() === slot.date.toISOString()
+          ? { ...s, isSelected: !s.isSelected }
+          : s
+      )
+    );
+  };
+
+  const confirmSlotSelection = () => {
+    const newSelectedSlots = selectedDaySlots.filter((s) => s.isSelected);
+    setSelectedSlots((prev) => [
+      ...prev.filter(
+        (s) => s.date.toDateString() !== currentDay.toDateString()
+      ),
+      ...newSelectedSlots,
+    ]);
+    setSlotModalOpen(false);
   };
 
   const calculateTotalCost = () => {
@@ -213,31 +222,76 @@ export default function BookingPage() {
         : coaches.find((c) => c._id === selectedCoach);
     const coachRate = coach && coach.rate ? parseFloat(coach.rate) : 0;
     const courtCost = settings.courtRentalCost || 20;
-    const ballMachineCost = ballMachine ? settings.ballMachineCost || 10 : 0;
+    const ballMachineCost = ballMachine ? settings.ballMachineCost || 40 : 0; // Adjusted to match your cost
     return (coachRate + courtCost + ballMachineCost) * hours;
   };
 
   const handleBookingConfirm = async () => {
     if (!user || selectedSlots.length === 0) return;
     try {
-      const bookingPromises = selectedSlots.map((slot) => {
+      const sortedSlots = [...selectedSlots].sort((a, b) => a.date - b.date);
+      const mergedBookings = [];
+      let currentBooking = {
+        ...sortedSlots[0],
+        endTime: sortedSlots[0].endTime,
+      };
+
+      for (let i = 1; i < sortedSlots.length; i++) {
+        const prevEnd = new Date(currentBooking.date);
+        prevEnd.setHours(
+          parseInt(currentBooking.endTime.split(":")[0]),
+          0,
+          0,
+          0
+        );
+        const nextStart = new Date(sortedSlots[i].date);
+        nextStart.setHours(
+          parseInt(sortedSlots[i].startTime.split(":")[0]),
+          0,
+          0,
+          0
+        );
+
+        if (
+          prevEnd.getTime() === nextStart.getTime() &&
+          currentBooking.day === sortedSlots[i].day
+        ) {
+          currentBooking.endTime = sortedSlots[i].endTime;
+        } else {
+          mergedBookings.push({ ...currentBooking });
+          currentBooking = {
+            ...sortedSlots[i],
+            endTime: sortedSlots[i].endTime,
+          };
+        }
+      }
+      mergedBookings.push({ ...currentBooking });
+
+      const bookingPromises = mergedBookings.map((slot) => {
         const bookingData = {
           userId: user.uid,
           coachId: selectedCoach === "no-coach" ? null : selectedCoach,
           day: slot.day,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
+          startTime: slot.date.toISOString(),
+          endTime: new Date(slot.date).setHours(
+            parseInt(slot.endTime.split(":")[0]),
+            0,
+            0,
+            0
+          ),
           ballMachine,
           status: "pending",
           totalCost: calculateTotalCost(),
           createdAt: new Date().toISOString(),
         };
+        bookingData.endTime = new Date(bookingData.endTime).toISOString();
         return fetch("/api/bookings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bookingData),
         });
       });
+
       const responses = await Promise.all(bookingPromises);
       const bookingIds = [];
       for (const res of responses) {
@@ -261,7 +315,7 @@ export default function BookingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingIds: pendingBookingIds,
-          amount: calculateTotalCost() * 100, // Stripe expects cents
+          amount: calculateTotalCost() * 100,
           currency: "usd",
           description: `Booking for ${selectedSlots.length} slot(s)`,
         }),
@@ -273,6 +327,30 @@ export default function BookingPage() {
     } catch (err) {
       setError(err.message);
       setPaymentModalOpen(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (bookingIds) => {
+    try {
+      const updatePromises = bookingIds.map((id) =>
+        fetch(`/api/bookings/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "confirmed" }),
+        })
+      );
+      const responses = await Promise.all(updatePromises);
+      responses.forEach((res) => {
+        if (!res.ok)
+          throw new Error(`Failed to confirm booking: ${res.statusText}`);
+      });
+      setPaymentModalOpen(false);
+      setPendingBookingIds([]);
+      setSelectedSlots([]);
+      const bookingsRes = await fetch("/api/bookings");
+      if (bookingsRes.ok) setBookings(await bookingsRes.json());
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -317,14 +395,34 @@ export default function BookingPage() {
           {selectedCoach && (
             <div>
               <h2 className="text-lg font-semibold text-primary-600 mb-2">
-                Availability
+                Select Dates (Central Time)
               </h2>
-              <div className="flex flex-wrap justify-center">
-                {getAvailabilityCheckboxes().length > 0 ? (
-                  getAvailabilityCheckboxes()
+              <Calendar
+                onChange={setCalendarDate}
+                value={calendarDate}
+                tileContent={tileContent}
+                onClickDay={handleDateClick}
+                className="mx-auto"
+              />
+              <div className="mt-4">
+                <h3 className="text-md font-medium text-neutrals-700 dark:text-neutrals-300">
+                  Selected Slots:
+                </h3>
+                {selectedSlots.length > 0 ? (
+                  <ul className="list-disc pl-5">
+                    {selectedSlots.map((slot, index) => (
+                      <li key={index}>
+                        {slot.day} {slot.date.toLocaleDateString()}{" "}
+                        {formatTimeTo12HourCDT(slot.date)} -{" "}
+                        {formatTimeTo12HourCDT(
+                          new Date(slot.date).setHours(slot.date.getHours() + 1)
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
                   <p className="text-neutrals-600 dark:text-neutrals-300">
-                    No availability listed.
+                    No slots selected.
                   </p>
                 )}
               </div>
@@ -383,8 +481,11 @@ export default function BookingPage() {
             <ul className="mb-4">
               {selectedSlots.map((slot, index) => (
                 <li key={index}>
-                  {slot.day}: {formatTimeTo12Hour(slot.startTime)} -{" "}
-                  {formatTimeTo12Hour(slot.endTime)}
+                  {slot.day} {slot.date.toLocaleDateString()}:{" "}
+                  {formatTimeTo12HourCDT(slot.date)} -{" "}
+                  {formatTimeTo12HourCDT(
+                    new Date(slot.date).setHours(slot.date.getHours() + 1)
+                  )}
                 </li>
               ))}
             </ul>
@@ -404,6 +505,58 @@ export default function BookingPage() {
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {slotModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
+            <button
+              onClick={() => setSlotModalOpen(false)}
+              className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-bold mb-4">
+              Select Slots for {currentDay.toLocaleDateString()} (CDT)
+            </h2>
+            <div className="space-y-2">
+              {selectedDaySlots.map((slot, index) => (
+                <div key={index} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`day-slot-${index}`}
+                    checked={slot.isSelected}
+                    onChange={() => handleSlotToggle(slot)}
+                    className="mr-2"
+                  />
+                  <label
+                    htmlFor={`day-slot-${index}`}
+                    className="text-neutrals-700 dark:text-neutrals-300"
+                  >
+                    {formatTimeTo12HourCDT(slot.date)} -{" "}
+                    {formatTimeTo12HourCDT(
+                      new Date(slot.date).setHours(slot.date.getHours() + 1)
+                    )}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end space-x-4">
+              <button
+                onClick={() => setSlotModalOpen(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSlotSelection}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Confirm Selection
               </button>
             </div>
           </div>
