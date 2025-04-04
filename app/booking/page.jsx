@@ -38,6 +38,8 @@ export default function BookingPage() {
           const coachData = await coachRes.json();
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
+          console.log("Coaches:", JSON.stringify(coachData, null, 2));
+          console.log("Bookings:", JSON.stringify(bookingsData, null, 2));
           setCoaches(coachData);
           setBookings(bookingsData);
           setSettings(settingsData);
@@ -63,6 +65,20 @@ export default function BookingPage() {
     return `${adjustedHour}:${minutes} ${period}`;
   };
 
+  const parseTimeToMinutes = (time) => {
+    if (!time) return 0;
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const normalizeTime = (time) => {
+    if (!time) return "00:00";
+    if (time.includes("T")) {
+      return time.split("T")[1].substring(0, 5); // "HH:MM" from ISO
+    }
+    return time.padStart(5, "0"); // Ensure "HH:MM"
+  };
+
   const generateHourlySlots = (startTime, endTime, day) => {
     const start = parseInt(startTime.split(":")[0], 10);
     const end = parseInt(endTime.split(":")[0], 10);
@@ -76,41 +92,92 @@ export default function BookingPage() {
   };
 
   const getAvailabilityCheckboxes = () => {
+    const isBooked = (slot, coachId) => {
+      return bookings.some((booking) => {
+        const sameCoach =
+          booking.coachId === coachId ||
+          (!booking.coachId && coachId === "no-coach");
+        // Use slot.day as the definitive day if booking.day is missing
+        const bookingDay =
+          booking.day ||
+          new Date(booking.createdAt).toLocaleString("en-US", {
+            weekday: "long",
+          });
+        const sameDay = booking.day ? slot.day === booking.day : true; // Only enforce day if present in booking
+        const slotStart = parseTimeToMinutes(slot.startTime);
+        const slotEnd = parseTimeToMinutes(slot.endTime);
+        const bookingStart = parseTimeToMinutes(
+          normalizeTime(booking.startTime)
+        );
+        const bookingEnd = parseTimeToMinutes(normalizeTime(booking.endTime));
+        const timeOverlap =
+          (bookingStart <= slotStart && slotStart < bookingEnd) ||
+          (bookingStart < slotEnd && slotEnd <= bookingEnd) ||
+          (slotStart <= bookingStart && bookingEnd <= slotEnd);
+        const isPendingOrConfirmed = ["pending", "confirmed"].includes(
+          booking.status
+        );
+        const result =
+          sameCoach && sameDay && timeOverlap && isPendingOrConfirmed;
+        console.log(
+          `Checking slot ${slot.day} ${slot.startTime}-${slot.endTime} for coach ${coachId}:`,
+          {
+            sameCoach,
+            sameDay,
+            bookingDay,
+            slotDay: slot.day,
+            slotStart,
+            slotEnd,
+            bookingStart,
+            bookingEnd,
+            timeOverlap,
+            isPendingOrConfirmed,
+            result,
+            booking: booking._id,
+          }
+        );
+        return result;
+      });
+    };
+
     if (selectedCoach === "no-coach") {
       const availableSlots = [
         { day: "Monday", startTime: "10:00", endTime: "11:00" },
         { day: "Tuesday", startTime: "14:00", endTime: "15:00" },
-      ]; // Replace with real bookings logic
-      return availableSlots.map((slot, index) => (
-        <div key={index} className="flex items-center m-2">
-          <input
-            type="checkbox"
-            id={`slot-${index}`}
-            checked={selectedSlots.some(
-              (s) => s.day === slot.day && s.startTime === slot.startTime
-            )}
-            onChange={(e) => {
-              if (e.target.checked) {
-                setSelectedSlots((prev) => [...prev, slot]);
-              } else {
-                setSelectedSlots((prev) =>
-                  prev.filter(
-                    (s) => s.day !== slot.day || s.startTime !== slot.startTime
-                  )
-                );
-              }
-            }}
-            className="mr-2"
-          />
-          <label
-            htmlFor={`slot-${index}`}
-            className="text-neutrals-700 dark:text-neutrals-300"
-          >
-            {slot.day}: {formatTimeTo12Hour(slot.startTime)} -{" "}
-            {formatTimeTo12Hour(slot.endTime)}
-          </label>
-        </div>
-      ));
+      ];
+      return availableSlots
+        .filter((slot) => !isBooked(slot, "no-coach"))
+        .map((slot, index) => (
+          <div key={index} className="flex items-center m-2">
+            <input
+              type="checkbox"
+              id={`slot-${index}`}
+              checked={selectedSlots.some(
+                (s) => s.day === slot.day && s.startTime === slot.startTime
+              )}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedSlots((prev) => [...prev, slot]);
+                } else {
+                  setSelectedSlots((prev) =>
+                    prev.filter(
+                      (s) =>
+                        s.day !== slot.day || s.startTime !== slot.startTime
+                    )
+                  );
+                }
+              }}
+              className="mr-2"
+            />
+            <label
+              htmlFor={`slot-${index}`}
+              className="text-neutrals-700 dark:text-neutrals-300"
+            >
+              {slot.day}: {formatTimeTo12Hour(slot.startTime)} -{" "}
+              {formatTimeTo12Hour(slot.endTime)}
+            </label>
+          </div>
+        ));
     }
     if (!selectedCoach) return [];
     const coach = coaches.find((c) => c._id === selectedCoach);
@@ -118,7 +185,12 @@ export default function BookingPage() {
     const allSlots = coach.availability.flatMap((slot) =>
       generateHourlySlots(slot.startTime, slot.endTime, slot.day)
     );
-    return allSlots.map((slot, index) => (
+    console.log(`All slots for ${coach.name}:`, allSlots);
+    const filteredSlots = allSlots.filter(
+      (slot) => !isBooked(slot, selectedCoach)
+    );
+    console.log(`Filtered slots for ${coach.name}:`, filteredSlots);
+    return filteredSlots.map((slot, index) => (
       <div key={index} className="flex items-center m-2">
         <input
           type="checkbox"
@@ -157,7 +229,7 @@ export default function BookingPage() {
         ? null
         : coaches.find((c) => c._id === selectedCoach);
     const coachRate = coach && coach.rate ? parseFloat(coach.rate) : 0;
-    const courtCost = settings.courtRentalCost || 20; // Default if not fetched
+    const courtCost = settings.courtRentalCost || 20;
     const ballMachineCost = ballMachine ? settings.ballMachineCost || 10 : 0;
     return (coachRate + courtCost + ballMachineCost) * hours;
   };
@@ -169,10 +241,12 @@ export default function BookingPage() {
         const bookingData = {
           userId: user.uid,
           coachId: selectedCoach === "no-coach" ? null : selectedCoach,
+          day: slot.day,
           startTime: slot.startTime,
           endTime: slot.endTime,
           ballMachine,
           status: "pending",
+          totalCost: calculateTotalCost(),
           createdAt: new Date().toISOString(),
         };
         return fetch("/api/bookings", {
@@ -185,8 +259,10 @@ export default function BookingPage() {
       responses.forEach((res) => {
         if (!res.ok) throw new Error("Failed to save booking");
       });
-      setModalOpen(false); // Close on success
-      setSelectedSlots([]); // Clear selections
+      setModalOpen(false);
+      setSelectedSlots([]);
+      const bookingsRes = await fetch("/api/bookings");
+      if (bookingsRes.ok) setBookings(await bookingsRes.json());
     } catch (err) {
       setError(err.message);
     }
@@ -279,7 +355,6 @@ export default function BookingPage() {
         </form>
       </div>
 
-      {/* Modal for Confirmation */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">

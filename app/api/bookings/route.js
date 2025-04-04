@@ -10,16 +10,8 @@ export async function GET() {
     client = new MongoClient(process.env.MONGODB_URI);
     await client.connect();
     const db = client.db("bayou-side-tennis");
-    const bookings = await db
-      .collection("bookings")
-      .find({ coachId: null })
-      .toArray();
-    // Placeholder: Return sample slots for "No Coach"
-    const availableSlots = [
-      { day: "Monday", startTime: "10:00", endTime: "11:00" },
-      { day: "Tuesday", startTime: "14:00", endTime: "15:00" },
-    ];
-    return NextResponse.json(availableSlots); // Replace with real logic
+    const bookings = await db.collection("bookings").find({}).toArray();
+    return NextResponse.json(bookings); // Return all bookings for filtering
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch bookings", details: error.message },
