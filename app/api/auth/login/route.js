@@ -1,5 +1,5 @@
 import { MongoClient } from "mongodb";
-import { adminAuth } from "../../../lib/firebaseAdmin"; // Adjusted path
+import { adminAuth } from "../../../lib/firebaseAdmin";
 
 const mongoClient = new MongoClient(process.env.MONGODB_URI);
 
