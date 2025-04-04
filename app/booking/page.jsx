@@ -97,13 +97,8 @@ export default function BookingPage() {
         const sameCoach =
           booking.coachId === coachId ||
           (!booking.coachId && coachId === "no-coach");
-        // Use slot.day as the definitive day if booking.day is missing
-        const bookingDay =
-          booking.day ||
-          new Date(booking.createdAt).toLocaleString("en-US", {
-            weekday: "long",
-          });
-        const sameDay = booking.day ? slot.day === booking.day : true; // Only enforce day if present in booking
+        // Use slot.day as the definitive day; only enforce booking.day if present
+        const sameDay = booking.day ? slot.day === booking.day : true;
         const slotStart = parseTimeToMinutes(slot.startTime);
         const slotEnd = parseTimeToMinutes(slot.endTime);
         const bookingStart = parseTimeToMinutes(
@@ -124,7 +119,7 @@ export default function BookingPage() {
           {
             sameCoach,
             sameDay,
-            bookingDay,
+            bookingDay: booking.day || "N/A",
             slotDay: slot.day,
             slotStart,
             slotEnd,
@@ -133,7 +128,7 @@ export default function BookingPage() {
             timeOverlap,
             isPendingOrConfirmed,
             result,
-            booking: booking._id,
+            bookingId: booking._id,
           }
         );
         return result;
