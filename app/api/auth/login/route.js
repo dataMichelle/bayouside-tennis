@@ -1,27 +1,7 @@
 import { MongoClient } from "mongodb";
-import admin from "firebase-admin";
+import { adminAuth } from "../../../lib/firebaseAdmin"; // Adjusted path
 
 const mongoClient = new MongoClient(process.env.MONGODB_URI);
-
-// Initialize Firebase Admin SDK with environment variables
-if (!admin.apps.length) {
-  try {
-    const serviceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"), // Handle newlines
-    };
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  } catch (error) {
-    console.error("API - Firebase Admin Initialization Error:", {
-      message: error.message,
-      code: error.code,
-    });
-    throw error;
-  }
-}
 
 export async function POST(req) {
   try {
@@ -46,9 +26,9 @@ export async function POST(req) {
         });
       }
 
-      const customToken = await admin
-        .auth()
-        .createCustomToken(user._id.toString());
+      const customToken = await adminAuth.createCustomToken(
+        user._id.toString()
+      );
       mongoClient.close();
       return new Response(
         JSON.stringify({ token: customToken, role: user.role }),
