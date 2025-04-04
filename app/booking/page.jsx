@@ -3,6 +3,12 @@
 import { useState, useEffect } from "react";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { loadStripe } from "@stripe/stripe-js";
+
+// Use environment variable for publishable key
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+);
 
 export default function BookingPage() {
   const [user, setUser] = useState(null);
@@ -15,7 +21,9 @@ export default function BookingPage() {
   const [selectedCoach, setSelectedCoach] = useState("");
   const [ballMachine, setBallMachine] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState([]);
+  const [pendingBookingIds, setPendingBookingIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -74,9 +82,9 @@ export default function BookingPage() {
   const normalizeTime = (time) => {
     if (!time) return "00:00";
     if (time.includes("T")) {
-      return time.split("T")[1].substring(0, 5); // "HH:MM" from ISO
+      return time.split("T")[1].substring(0, 5);
     }
-    return time.padStart(5, "0"); // Ensure "HH:MM"
+    return time.padStart(5, "0");
   };
 
   const generateHourlySlots = (startTime, endTime, day) => {
@@ -97,7 +105,6 @@ export default function BookingPage() {
         const sameCoach =
           booking.coachId === coachId ||
           (!booking.coachId && coachId === "no-coach");
-        // Use slot.day as the definitive day; only enforce booking.day if present
         const sameDay = booking.day ? slot.day === booking.day : true;
         const slotStart = parseTimeToMinutes(slot.startTime);
         const slotEnd = parseTimeToMinutes(slot.endTime);
@@ -112,26 +119,7 @@ export default function BookingPage() {
         const isPendingOrConfirmed = ["pending", "confirmed"].includes(
           booking.status
         );
-        const result =
-          sameCoach && sameDay && timeOverlap && isPendingOrConfirmed;
-        console.log(
-          `Checking slot ${slot.day} ${slot.startTime}-${slot.endTime} for coach ${coachId}:`,
-          {
-            sameCoach,
-            sameDay,
-            bookingDay: booking.day || "N/A",
-            slotDay: slot.day,
-            slotStart,
-            slotEnd,
-            bookingStart,
-            bookingEnd,
-            timeOverlap,
-            isPendingOrConfirmed,
-            result,
-            bookingId: booking._id,
-          }
-        );
-        return result;
+        return sameCoach && sameDay && timeOverlap && isPendingOrConfirmed;
       });
     };
 
@@ -251,15 +239,40 @@ export default function BookingPage() {
         });
       });
       const responses = await Promise.all(bookingPromises);
-      responses.forEach((res) => {
+      const bookingIds = [];
+      for (const res of responses) {
         if (!res.ok) throw new Error("Failed to save booking");
-      });
+        const data = await res.json();
+        bookingIds.push(data.id);
+      }
       setModalOpen(false);
-      setSelectedSlots([]);
-      const bookingsRes = await fetch("/api/bookings");
-      if (bookingsRes.ok) setBookings(await bookingsRes.json());
+      setPendingBookingIds(bookingIds);
+      setPaymentModalOpen(true);
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handlePaymentConfirm = async () => {
+    try {
+      const stripe = await stripePromise;
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingIds: pendingBookingIds,
+          amount: calculateTotalCost() * 100, // Stripe expects cents
+          currency: "usd",
+          description: `Booking for ${selectedSlots.length} slot(s)`,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to create Stripe session");
+      const { sessionId } = await response.json();
+      const result = await stripe.redirectToCheckout({ sessionId });
+      if (result.error) throw new Error(result.error.message);
+    } catch (err) {
+      setError(err.message);
+      setPaymentModalOpen(false);
     }
   };
 
@@ -391,6 +404,38 @@ export default function BookingPage() {
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
+            <button
+              onClick={() => setPaymentModalOpen(false)}
+              className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-bold mb-4">Payment Required</h2>
+            <p>Booking saved as pending. Complete payment to confirm.</p>
+            <p className="mt-2 font-semibold">
+              Total: ${calculateTotalCost().toFixed(2)}
+            </p>
+            <div className="mt-6 flex justify-end space-x-4">
+              <button
+                onClick={() => setPaymentModalOpen(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePaymentConfirm}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Pay with Stripe
               </button>
             </div>
           </div>
