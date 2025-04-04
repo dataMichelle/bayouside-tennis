@@ -1,7 +1,7 @@
+// app/layout.jsx
 import "./globals.css";
 import Navbar from "./components/Navbar";
-import AuthSessionProvider from "./SessionProvider";
-import BodyWrapper from "./components/BodyWrapper"; // Import the Client Component
+import BodyWrapper from "./components/BodyWrapper";
 
 export const metadata = {
   title: "Bayouside Tennis",
@@ -11,14 +11,12 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="min-h-screen">
-        <AuthSessionProvider>
-          <BodyWrapper>
-            <Navbar />
-            <div style={{ height: "64px" }}></div>
-            {children}
-          </BodyWrapper>
-        </AuthSessionProvider>
+      <body className="min-h-screen" suppressHydrationWarning>
+        <BodyWrapper>
+          <Navbar />
+          <div style={{ height: "64px" }}></div>
+          {children}
+        </BodyWrapper>
       </body>
     </html>
   );

@@ -1,42 +1,110 @@
 "use client";
-import { useState, useEffect } from "react";
-import { signIn, useSession } from "next-auth/react";
+
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signInWithCustomToken } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("");
   const [error, setError] = useState(null);
   const router = useRouter();
-  const { data: session, status } = useSession();
-
-  useEffect(() => {
-    if (status === "authenticated" && session?.user?.role) {
-      router.push(session.user.role === "player" ? "/players" : "/dashboard");
-    }
-  }, [status, session, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const callbackUrl = role === "player" ? "/players" : "/dashboard";
-    const result = await signIn("credentials", {
+    setError(null);
+    console.log("Login - Starting login process with:", {
       email,
-      password,
-      role,
-      callbackUrl,
-      redirect: false,
+      password: "[hidden]",
     });
 
-    if (result?.error) {
-      setError(
-        result.error === "CredentialsSignin"
-          ? "Invalid email, password, or role"
-          : result.error
+    try {
+      console.log("Login - Sending POST to /api/auth/login");
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      console.log(
+        "Login - API Response Status:",
+        response.status,
+        "OK:",
+        response.ok
       );
-    } else if (result?.ok) {
+
+      const responseText = await response.text();
+      console.log("Login - Raw API Response:", responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log("Login - Parsed API Response Data:", data);
+      } catch (jsonError) {
+        console.error(
+          "Login - JSON Parse Error:",
+          jsonError.message,
+          "Raw Response:",
+          responseText
+        );
+        throw new Error("Invalid JSON response from server");
+      }
+
+      if (!response.ok) {
+        console.log("Login - API Error Response:", {
+          status: response.status,
+          data,
+        });
+        throw new Error(
+          data.error || `API request failed with status ${response.status}`
+        );
+      }
+
+      console.log(
+        "Login - Signing in with custom token:",
+        data.token.substring(0, 10) + "..."
+      );
+      const userCredential = await signInWithCustomToken(auth, data.token);
+      console.log("Login - Firebase SignIn Success:", {
+        email: userCredential.user.email,
+        uid: userCredential.user.uid,
+      });
+
+      localStorage.setItem("userRole", data.role);
+      console.log("Login - Stored role in localStorage:", data.role);
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      let callbackUrl;
+      switch (data.role) {
+        case "player":
+          callbackUrl = "/dashboard/player";
+          break;
+        case "coach":
+          callbackUrl = "/dashboard/coach";
+          break;
+        case "owner":
+          callbackUrl = "/dashboard/owner";
+          break;
+        default:
+          callbackUrl = "/dashboard";
+          console.warn("Login - Unknown role:", data.role);
+      }
+      console.log("Login - Redirecting to:", callbackUrl);
       router.push(callbackUrl);
+      router.refresh();
+    } catch (err) {
+      setError(err.message || "An unknown error occurred");
+      console.error("Login - Error Details:", {
+        message: err.message || "No message",
+        code: err.code || "No code",
+        stack: err.stack || "No stack",
+        name: err.name || "No name",
+        response: err.response
+          ? { status: err.response.status, data: err.response.data }
+          : "No response",
+      });
     }
   };
 
@@ -58,7 +126,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none autofill:bg-primary-50 autofill:dark:bg-neutrals-900 :-webkit-autofill:bg-primary-50 :-webkit-autofill:dark:bg-neutrals-900"
+              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="you@example.com"
             />
           </div>
@@ -73,31 +141,11 @@ export default function Login() {
               type="password"
               id="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)} // Fixed: setPassword instead of setEmail
               required
-              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none autofill:bg-primary-50 autofill:dark:bg-neutrals-900 :-webkit-autofill:bg-primary-50 :-webkit-autofill:dark:bg-neutrals-900"
+              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="••••••••"
             />
-          </div>
-          <div>
-            <label
-              htmlFor="role"
-              className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
-            >
-              Your Role
-            </label>
-            <select
-              id="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none autofill:bg-primary-50 autofill:dark:bg-neutrals-900"
-            >
-              <option value="">Select a role</option>
-              <option value="player">Tennis Player</option>
-              <option value="coach">Coach</option>
-              <option value="owner">Owner</option>
-            </select>
           </div>
           {error && <p className="text-red-500 text-center">{error}</p>}
           <button

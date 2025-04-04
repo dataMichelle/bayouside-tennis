@@ -9,11 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fullcalendar/daygrid": "^6.1.17",
+    "@fullcalendar/react": "^6.1.17",
     "bcrypt": "^5.1.1",
+    "firebase": "^11.6.0",
+    "firebase-admin": "^13.2.0",
     "framer-motion": "^12.6.2",
     "mongodb": "^6.15.0",
     "next": "15.2.4",
-    "next-auth": "^4.24.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

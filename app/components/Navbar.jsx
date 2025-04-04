@@ -1,8 +1,10 @@
 "use client";
-import { useSession, signOut } from "next-auth/react";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 const navLinks = [
   { path: "/", label: "Home", public: true },
@@ -20,20 +22,22 @@ const navLinks = [
 ];
 
 export default function Navbar() {
-  const { data: session, status } = useSession();
-  const isLoading = status === "loading";
-  const isLoggedIn = !!session;
-  const [renderKey, setRenderKey] = useState(0);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      setRenderKey((prev) => prev + 1);
-    }
-  }, [session, status]);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-  if (isLoading) {
+  if (loading) {
     return <div className="p-4">Loading...</div>;
   }
+
+  const isLoggedIn = !!user;
 
   const linksWithAuth = [
     ...navLinks.filter((link) => link.label !== "Sign Up" || !isLoggedIn),
@@ -41,9 +45,12 @@ export default function Navbar() {
       ? [
           {
             path: "#",
-            label: "Sign Out",
+            label: "Log Out",
             public: false,
-            onClick: () => signOut({ callbackUrl: "/" }),
+            onClick: () => {
+              localStorage.removeItem("userRole");
+              signOut(auth).then(() => (window.location.href = "/"));
+            },
           },
         ]
       : [{ path: "/login", label: "Log In", public: true }]),
@@ -60,12 +67,7 @@ export default function Navbar() {
         <nav className="flex items-center space-x-6">
           {linksWithAuth.map((link) => {
             const shouldShow =
-              link.label === "Sign Out"
-                ? isLoggedIn
-                : link.public ||
-                  (isLoggedIn &&
-                    link.roles &&
-                    link.roles.includes(session?.user?.role));
+              link.label === "Log Out" ? isLoggedIn : link.public;
             return shouldShow ? (
               <Link
                 key={link.path}
