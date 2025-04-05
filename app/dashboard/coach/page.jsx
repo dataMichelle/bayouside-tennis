@@ -6,6 +6,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { format, utcToZonedTime, parseISO, parse } from "date-fns-tz"; // Add parse
 
 export default function CoachDashboard() {
   const [schedule, setSchedule] = useState([]);
@@ -110,6 +111,43 @@ export default function CoachDashboard() {
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
+  const getCSTDateTime = (booking) => {
+    const timeZone = "America/Chicago";
+    let start, end;
+
+    if (booking.startTime.includes("T")) {
+      // Full ISO string (e.g., "2025-04-11T14:00:00.000Z")
+      start = utcToZonedTime(parseISO(booking.startTime), timeZone);
+      end = utcToZonedTime(parseISO(booking.endTime), timeZone);
+    } else {
+      // Time-only string (e.g., "10:00") with day (e.g., "Tuesday")
+      const baseDate = new Date(2025, 3, 1); // April 2025 base for reference
+      const dayIndex = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ].indexOf(booking.day);
+      const daysToAdd = (dayIndex - baseDate.getDay() + 7) % 7;
+      const eventDate = new Date(baseDate);
+      eventDate.setDate(baseDate.getDate() + daysToAdd);
+
+      start = utcToZonedTime(
+        parse(`${eventDate.toISOString().split("T")[0]} ${booking.startTime}`, "yyyy-MM-dd HH:mm", new Date()),
+        timeZone
+      );
+      end = utcToZonedTime(
+        parse(`${eventDate.toISOString().split("T")[0]} ${booking.endTime}`, "yyyy-MM-dd HH:mm", new Date()),
+        timeZone
+      );
+    }
+
+    return { start, end };
+  };
+
   return (
     <div className="flex">
       <Sidebar />
@@ -118,63 +156,82 @@ export default function CoachDashboard() {
           Coach Dashboard - {coachName}
         </h1>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Monthly Schedule</h2>
-          <FullCalendar
-            plugins={[dayGridPlugin]}
-            initialView="dayGridMonth"
-            events={schedule.map((booking) => ({
-              id: booking._id.toString(),
-              title: "Booking",
-              start: booking.startTime,
-              end: booking.endTime,
-              backgroundColor: "green",
-              borderColor: "green",
-            }))}
-            eventClick={handleEventClick}
-            editable={false}
-            selectable={true}
-          />
-          {selectedBooking && (
-            <div className="mt-4 p-4 border rounded bg-gray-100 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
-              <h3 className="text-lg font-bold">Booking Details</h3>
-              <p>Player: {selectedBooking.playerName}</p>
-              <p>Payment Status: {selectedBooking.paymentStatus}</p>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                Close
-              </button>
-            </div>
-          )}
-        </section>
+        <div className="bg-taupe-200 bg-opacity-80 border border-swamp-400 border-opacity-40 shadow-[0px_8px_16px_rgba(34,85,34,1)] p-6 rounded-lg">
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">Monthly Schedule</h2>
+            <FullCalendar
+              plugins={[dayGridPlugin]}
+              initialView="dayGridMonth"
+              events={schedule.map((booking) => {
+                const { start, end } = getCSTDateTime(booking);
+                return {
+                  id: booking._id.toString(),
+                  title: "Booking",
+                  start,
+                  end,
+                  backgroundColor: "green",
+                  borderColor: "green",
+                };
+              })}
+              eventClick={handleEventClick}
+              editable={false}
+              selectable={true}
+            />
+            {selectedBooking && (
+              <div className="mt-4 p-4 border rounded bg-gray-100 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+                <h3 className="text-lg font-bold">Booking Details</h3>
+                <p>Player: {selectedBooking.playerName}</p>
+                <p>
+                  Start:{" "}
+                  {format(
+                    getCSTDateTime(selectedBooking).start,
+                    "yyyy-MM-dd HH:mm"
+                  )}
+                </p>
+                <p>
+                  End:{" "}
+                  {format(
+                    getCSTDateTime(selectedBooking).end,
+                    "yyyy-MM-dd HH:mm"
+                  )}
+                </p>
+                <p>Payment Status: {selectedBooking.paymentStatus}</p>
+                <button
+                  onClick={() => setSelectedBooking(null)}
+                  className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </section>
 
-        <section>
-          <h2 className="text-2xl font-semibold mb-4">Update Coaching Fee</h2>
-          <form onSubmit={handleFeeSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="fee" className="block text-sm font-medium">
-                Hourly Fee ($)
-              </label>
-              <input
-                type="number"
-                id="fee"
-                value={fee}
-                onChange={(e) => setFee(e.target.value)}
-                required
-                className="w-full px-4 py-2 border rounded-md"
-                step="0.01"
-              />
-            </div>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              Update Fee
-            </button>
-          </form>
-        </section>
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">Update Coaching Fee</h2>
+            <form onSubmit={handleFeeSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="fee" className="block text-sm font-medium">
+                  Hourly Fee ($)
+                </label>
+                <input
+                  type="number"
+                  id="fee"
+                  value={fee}
+                  onChange={(e) => setFee(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border rounded-md"
+                  step="0.01"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              >
+                Update Fee
+              </button>
+            </form>
+          </section>
+        </div>
       </main>
     </div>
   );

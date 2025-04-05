@@ -14,7 +14,6 @@ export default function Sidebar() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Get role from localStorage
         const storedRole = localStorage.getItem("userRole");
         setRole(storedRole);
       } else {
@@ -55,7 +54,7 @@ export default function Sidebar() {
     }[role] || "Owner Menu";
 
   return (
-    <aside className="w-64 bg-primary-50 dark:bg-neutrals-900 p-6 shadow-lg h-screen sticky top-0">
+    <aside className="w-64 bg-taupe-200 bg-opacity-80 border-r border-swamp-400 border-opacity-40 shadow-[0px_8px_16px_rgba(34,85,34,1)] p-6 h-screen sticky top-0">
       <h2 className="text-2xl font-bold text-primary-700 dark:text-primary-200 mb-6">
         {sidebarTitle}
       </h2>
