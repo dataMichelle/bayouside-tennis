@@ -290,7 +290,7 @@ export default function BookingPage() {
 
       const bookingPromises = mergedBookings.map((slot) => {
         const bookingData = {
-          userId: user.uid,
+          playerId: user.uid,
           coachId: selectedCoach === "no-coach" ? null : selectedCoach,
           day: slot.day,
           startTime: slot.date.toISOString(),
