@@ -39,8 +39,13 @@ export default function BookingPage() {
   } = usePayment();
 
   useEffect(() => {
+    console.log("BookingPage useEffect started");
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      console.log(
+        "Auth state changed, user:",
+        currentUser ? currentUser.uid : "none"
+      );
       if (currentUser) {
         try {
           const [coachRes, bookingsRes, settingsRes] = await Promise.all([
@@ -48,15 +53,37 @@ export default function BookingPage() {
             fetch("/api/bookings"),
             fetch("/api/settings"),
           ]);
+          console.log("API responses received:", {
+            coach: coachRes.ok,
+            bookings: bookingsRes.ok,
+            settings: settingsRes.ok,
+          });
           if (!coachRes.ok)
-            throw new Error(`Failed to fetch coaches: ${coachRes.status}`);
+            throw new Error(
+              `Failed to fetch coaches: ${
+                coachRes.status
+              } ${await coachRes.text()}`
+            );
           if (!bookingsRes.ok)
-            throw new Error(`Failed to fetch bookings: ${bookingsRes.status}`);
+            throw new Error(
+              `Failed to fetch bookings: ${
+                bookingsRes.status
+              } ${await bookingsRes.text()}`
+            );
           if (!settingsRes.ok)
-            throw new Error(`Failed to fetch settings: ${settingsRes.status}`);
+            throw new Error(
+              `Failed to fetch settings: ${
+                settingsRes.status
+              } ${await settingsRes.text()}`
+            );
           const coachData = await coachRes.json();
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
+          console.log("Data fetched:", {
+            coaches: coachData,
+            bookings: bookingsData,
+            settings: settingsData,
+          });
           setCoaches(coachData);
           setBookings(bookingsData);
           setSettings(settingsData);
@@ -65,16 +92,22 @@ export default function BookingPage() {
           const bookingIds = searchParams.get("bookingIds");
           if (success === "true" && bookingIds) {
             const ids = JSON.parse(decodeURIComponent(bookingIds));
+            console.log("Confirming bookings:", ids);
             await confirmBookings(ids);
             router.replace("/booking");
           }
         } catch (err) {
+          console.error("BookingPage fetch error:", err.message);
           setError(err.message);
         }
       }
       setLoading(false);
+      console.log("BookingPage useEffect completed, loading set to false");
     });
-    return () => unsubscribe();
+    return () => {
+      console.log("Cleaning up BookingPage useEffect");
+      unsubscribe();
+    };
   }, [searchParams, router, confirmBookings]);
 
   const handleLogout = async () => {
@@ -116,10 +149,11 @@ export default function BookingPage() {
     const coach = coaches.find((c) => c._id === selectedCoach) || {
       availability: [],
     };
+    const availability = Array.isArray(coach.availability)
+      ? coach.availability
+      : [];
     const dayName = date.toLocaleString("en-US", { weekday: "long" });
-    const dayAvailability = coach.availability.find(
-      (avail) => avail.day === dayName
-    );
+    const dayAvailability = availability.find((avail) => avail.day === dayName);
     if (!dayAvailability) return [];
 
     const allSlots = generateHourlySlots(
@@ -272,6 +306,7 @@ export default function BookingPage() {
           createdAt: new Date().toISOString(),
         };
         bookingData.endTime = new Date(bookingData.endTime).toISOString();
+        console.log("Submitting booking:", bookingData);
         return fetch("/api/bookings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -290,6 +325,7 @@ export default function BookingPage() {
       setPendingBookingIds(bookingIds);
       setPaymentModalOpen(true);
     } catch (err) {
+      console.error("Booking confirm error:", err.message);
       setError(err.message);
     }
   };
@@ -302,6 +338,7 @@ export default function BookingPage() {
         `Booking for ${selectedSlots.length} slot(s)`
       );
     } catch (err) {
+      console.error("Payment confirm error:", err.message);
       setPaymentModalOpen(false);
     }
   };

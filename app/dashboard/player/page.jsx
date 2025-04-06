@@ -36,11 +36,11 @@ export default function PlayerDashboard() {
           console.log("Bookings:", JSON.stringify(bookingsData, null, 2));
           console.log("Coaches:", JSON.stringify(coachesData, null, 2));
 
-          const upcomingBookings = bookingsData
-            .filter((booking) => new Date(booking.startTime) > new Date())
-            .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-          setBookings(upcomingBookings);
+          // Show all bookings, sorted by start time
+          const allBookings = bookingsData.sort(
+            (a, b) => new Date(a.startTime) - new Date(b.startTime)
+          );
+          setBookings(allBookings);
           setCoaches(coachesData);
         } catch (err) {
           setError(err.message);
@@ -83,9 +83,9 @@ export default function PlayerDashboard() {
           JSON.stringify(updatedBookings, null, 2)
         );
         setBookings(
-          updatedBookings
-            .filter((b) => new Date(b.startTime) > new Date())
-            .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+          updatedBookings.sort(
+            (a, b) => new Date(a.startTime) - new Date(b.startTime)
+          )
         );
       } else {
         throw new Error("Failed to refresh bookings");
@@ -113,7 +113,7 @@ export default function PlayerDashboard() {
       </h1>
       <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
         <h2 className="text-xl font-semibold text-primary-600 mb-4">
-          Upcoming Reservations
+          Your Reservations
         </h2>
         {bookings.length > 0 ? (
           <ul className="space-y-4">
@@ -172,7 +172,7 @@ export default function PlayerDashboard() {
           </ul>
         ) : (
           <p className="text-neutrals-600 dark:text-neutrals-300">
-            No upcoming reservations.
+            No reservations found.
           </p>
         )}
       </div>
