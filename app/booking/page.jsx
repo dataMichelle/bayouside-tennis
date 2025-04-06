@@ -1,16 +1,13 @@
+// app/booking/page.jsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { loadStripe } from "@stripe/stripe-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-);
+import { usePayment } from "../context/PaymentContext";
 
 export default function BookingPage() {
   const [user, setUser] = useState(null);
@@ -34,6 +31,12 @@ export default function BookingPage() {
   const [error, setError] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const {
+    initiatePayment,
+    confirmBookings,
+    error: paymentError,
+    isProcessing,
+  } = usePayment();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -54,8 +57,6 @@ export default function BookingPage() {
           const coachData = await coachRes.json();
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
-          console.log("Coaches:", JSON.stringify(coachData, null, 2));
-          console.log("Bookings:", JSON.stringify(bookingsData, null, 2));
           setCoaches(coachData);
           setBookings(bookingsData);
           setSettings(settingsData);
@@ -64,7 +65,7 @@ export default function BookingPage() {
           const bookingIds = searchParams.get("bookingIds");
           if (success === "true" && bookingIds) {
             const ids = JSON.parse(decodeURIComponent(bookingIds));
-            await handlePaymentSuccess(ids);
+            await confirmBookings(ids);
             router.replace("/booking");
           }
         } catch (err) {
@@ -74,7 +75,7 @@ export default function BookingPage() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [searchParams, router]);
+  }, [searchParams, router, confirmBookings]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -89,20 +90,6 @@ export default function BookingPage() {
       hour12: true,
       timeZone: "America/Chicago",
     });
-  };
-
-  const parseTimeToMinutes = (time) => {
-    if (!time) return 0;
-    const [hours, minutes] = time.split(":").map(Number);
-    return hours * 60 + minutes;
-  };
-
-  const normalizeTime = (time) => {
-    if (!time) return "00:00";
-    if (time.includes("T")) {
-      return time.split("T")[1].substring(0, 5);
-    }
-    return time.padStart(5, "0");
   };
 
   const generateHourlySlots = (startTime, endTime, day, date) => {
@@ -222,7 +209,7 @@ export default function BookingPage() {
         : coaches.find((c) => c._id === selectedCoach);
     const coachRate = coach && coach.rate ? parseFloat(coach.rate) : 0;
     const courtCost = settings.courtRentalCost || 20;
-    const ballMachineCost = ballMachine ? settings.ballMachineCost || 40 : 0; // Adjusted to match your cost
+    const ballMachineCost = ballMachine ? settings.ballMachineCost || 40 : 0;
     return (coachRate + courtCost + ballMachineCost) * hours;
   };
 
@@ -309,48 +296,13 @@ export default function BookingPage() {
 
   const handlePaymentConfirm = async () => {
     try {
-      const stripe = await stripePromise;
-      const response = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingIds: pendingBookingIds,
-          amount: calculateTotalCost() * 100,
-          currency: "usd",
-          description: `Booking for ${selectedSlots.length} slot(s)`,
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to create Stripe session");
-      const { sessionId } = await response.json();
-      const result = await stripe.redirectToCheckout({ sessionId });
-      if (result.error) throw new Error(result.error.message);
-    } catch (err) {
-      setError(err.message);
-      setPaymentModalOpen(false);
-    }
-  };
-
-  const handlePaymentSuccess = async (bookingIds) => {
-    try {
-      const updatePromises = bookingIds.map((id) =>
-        fetch(`/api/bookings/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "confirmed" }),
-        })
+      await initiatePayment(
+        pendingBookingIds,
+        calculateTotalCost(),
+        `Booking for ${selectedSlots.length} slot(s)`
       );
-      const responses = await Promise.all(updatePromises);
-      responses.forEach((res) => {
-        if (!res.ok)
-          throw new Error(`Failed to confirm booking: ${res.statusText}`);
-      });
-      setPaymentModalOpen(false);
-      setPendingBookingIds([]);
-      setSelectedSlots([]);
-      const bookingsRes = await fetch("/api/bookings");
-      if (bookingsRes.ok) setBookings(await bookingsRes.json());
     } catch (err) {
-      setError(err.message);
+      setPaymentModalOpen(false);
     }
   };
 
@@ -577,18 +529,23 @@ export default function BookingPage() {
             <p className="mt-2 font-semibold">
               Total: ${calculateTotalCost().toFixed(2)}
             </p>
+            {paymentError && (
+              <p className="text-red-500 mt-2">{paymentError}</p>
+            )}
             <div className="mt-6 flex justify-end space-x-4">
               <button
                 onClick={() => setPaymentModalOpen(false)}
                 className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                disabled={isProcessing}
               >
                 Cancel
               </button>
               <button
                 onClick={handlePaymentConfirm}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                disabled={isProcessing}
               >
-                Pay with Stripe
+                {isProcessing ? "Processing..." : "Pay with Stripe"}
               </button>
             </div>
           </div>

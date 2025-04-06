@@ -1,12 +1,13 @@
+// app/dashboard/coach/page.jsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { format, utcToZonedTime, parseISO, parse } from "date-fns-tz"; // Add parse
 
 export default function CoachDashboard() {
   const [schedule, setSchedule] = useState([]);
@@ -17,9 +18,11 @@ export default function CoachDashboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log("Local timezone:", new Date().toString());
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const coachId = user.uid;
+        console.log("CoachDashboard - Starting fetch for coachId:", coachId);
         await fetchCoachData(coachId);
       } else {
         setError("Not authenticated");
@@ -31,25 +34,55 @@ export default function CoachDashboard() {
 
   const fetchCoachData = async (coachId) => {
     try {
+      const now = new Date();
       const startOfMonth = new Date(
-        new Date().getFullYear(),
-        new Date().getMonth(),
-        1
-      ).toISOString();
-      const endOfMonth = new Date(
-        new Date().getFullYear(),
-        new Date().getMonth() + 1,
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+        0,
+        0,
+        0,
         0
-      ).toISOString();
+      );
+      const endOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
+
+      const startISO = startOfMonth.toISOString();
+      const endISO = endOfMonth.toISOString();
+
+      console.log(
+        "Fetching schedule for coachId:",
+        coachId,
+        "from",
+        startISO,
+        "to",
+        endISO
+      );
 
       const scheduleResponse = await fetch("/api/coach/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coachId, startOfMonth, endOfMonth }),
+        body: JSON.stringify({
+          coachId,
+          startOfMonth: startISO,
+          endOfMonth: endISO,
+        }),
       });
       const scheduleData = await scheduleResponse.json();
-      if (scheduleResponse.ok) setSchedule(scheduleData.bookings);
-      else throw new Error(scheduleData.error || "Failed to fetch schedule");
+      if (scheduleResponse.ok) {
+        console.log(
+          "Coach schedule:",
+          JSON.stringify(scheduleData.bookings, null, 2)
+        );
+        setSchedule(scheduleData.bookings);
+      } else throw new Error(scheduleData.error || "Failed to fetch schedule");
 
       const feeResponse = await fetch("/api/coach/fee", {
         method: "POST",
@@ -65,6 +98,7 @@ export default function CoachDashboard() {
         setCoachName("Unknown Coach");
       } else throw new Error(feeData.error || "Failed to fetch fee");
     } catch (err) {
+      console.error("Fetch error:", err.message);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -108,44 +142,15 @@ export default function CoachDashboard() {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-
-  const getCSTDateTime = (booking) => {
-    const timeZone = "America/Chicago";
-    let start, end;
-
-    if (booking.startTime.includes("T")) {
-      // Full ISO string (e.g., "2025-04-11T14:00:00.000Z")
-      start = utcToZonedTime(parseISO(booking.startTime), timeZone);
-      end = utcToZonedTime(parseISO(booking.endTime), timeZone);
-    } else {
-      // Time-only string (e.g., "10:00") with day (e.g., "Tuesday")
-      const baseDate = new Date(2025, 3, 1); // April 2025 base for reference
-      const dayIndex = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-      ].indexOf(booking.day);
-      const daysToAdd = (dayIndex - baseDate.getDay() + 7) % 7;
-      const eventDate = new Date(baseDate);
-      eventDate.setDate(baseDate.getDate() + daysToAdd);
-
-      start = utcToZonedTime(
-        parse(`${eventDate.toISOString().split("T")[0]} ${booking.startTime}`, "yyyy-MM-dd HH:mm", new Date()),
-        timeZone
-      );
-      end = utcToZonedTime(
-        parse(`${eventDate.toISOString().split("T")[0]} ${booking.endTime}`, "yyyy-MM-dd HH:mm", new Date()),
-        timeZone
-      );
-    }
-
-    return { start, end };
+  const formatTimeTo12HourCDT = (time) => {
+    if (!time) return "";
+    const date = new Date(time);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "America/Chicago",
+    });
   };
 
   return (
@@ -158,44 +163,83 @@ export default function CoachDashboard() {
 
         <div className="bg-taupe-200 bg-opacity-80 border border-swamp-400 border-opacity-40 shadow-[0px_8px_16px_rgba(34,85,34,1)] p-6 rounded-lg">
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Monthly Schedule</h2>
+            <h2 className="text-2xl font-semibold mb-4">Weekly Schedule</h2>
             <FullCalendar
-              plugins={[dayGridPlugin]}
-              initialView="dayGridMonth"
+              plugins={[dayGridPlugin, timeGridPlugin]}
+              initialView="timeGridWeek"
+              initialDate="2025-04-07"
+              timeZone="America/Chicago" // Use CDT directly
+              slotMinTime="06:00:00"
+              slotMaxTime="21:00:00"
+              slotDuration="01:00:00"
+              slotLabelInterval="01:00"
+              height="auto"
+              contentHeight="auto"
+              expandRows={false}
+              eventTimeFormat={{
+                hour: "numeric",
+                minute: "2-digit",
+                meridiem: "short",
+                timeZone: "America/Chicago",
+              }}
+              headerToolbar={{
+                left: "prev,next today",
+                center: "title",
+                right: "dayGridMonth,timeGridWeek",
+              }}
               events={schedule.map((booking) => {
-                const { start, end } = getCSTDateTime(booking);
-                return {
+                // Convert UTC to local CDT (subtract 5 hours)
+                const startCDT = new Date(booking.startTime);
+                startCDT.setHours(startCDT.getHours() - 5);
+                const endCDT = new Date(booking.endTime);
+                endCDT.setHours(endCDT.getHours() - 5);
+                const event = {
                   id: booking._id.toString(),
-                  title: "Booking",
-                  start,
-                  end,
-                  backgroundColor: "green",
-                  borderColor: "green",
+                  title: booking.coachId ? "Coaching" : "Court Booking",
+                  start: startCDT.toISOString(), // "2025-04-10T10:00:00.000Z" -> "2025-04-10T10:00:00.000Z"
+                  end: endCDT.toISOString(), // "2025-04-10T11:00:00.000Z" -> "2025-04-10T11:00:00.000Z"
+                  backgroundColor: booking.coachId ? "green" : "blue",
+                  borderColor: booking.coachId ? "green" : "blue",
                 };
+                console.log(
+                  "Event for FullCalendar:",
+                  JSON.stringify(event, null, 2)
+                );
+                return event;
               })}
               eventClick={handleEventClick}
               editable={false}
               selectable={true}
+              eventDidMount={(info) => {
+                console.log("Event rendered:", {
+                  id: info.event.id,
+                  start: info.event.start.toISOString(),
+                  end: info.event.end.toISOString(),
+                  displayDate: info.event.start.toLocaleDateString("en-US", {
+                    timeZone: "America/Chicago",
+                  }),
+                  displayTime: info.event.start.toLocaleTimeString("en-US", {
+                    timeZone: "America/Chicago",
+                    hour12: true,
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }),
+                  displayEndTime: info.event.end.toLocaleTimeString("en-US", {
+                    timeZone: "America/Chicago",
+                    hour12: true,
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }),
+                });
+              }}
             />
             {selectedBooking && (
               <div className="mt-4 p-4 border rounded bg-gray-100 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
                 <h3 className="text-lg font-bold">Booking Details</h3>
                 <p>Player: {selectedBooking.playerName}</p>
-                <p>
-                  Start:{" "}
-                  {format(
-                    getCSTDateTime(selectedBooking).start,
-                    "yyyy-MM-dd HH:mm"
-                  )}
-                </p>
-                <p>
-                  End:{" "}
-                  {format(
-                    getCSTDateTime(selectedBooking).end,
-                    "yyyy-MM-dd HH:mm"
-                  )}
-                </p>
-                <p>Payment Status: {selectedBooking.paymentStatus}</p>
+                <p>Start: {formatTimeTo12HourCDT(selectedBooking.startTime)}</p>
+                <p>End: {formatTimeTo12HourCDT(selectedBooking.endTime)}</p>
+                <p>Payment Status: {selectedBooking.status}</p>
                 <button
                   onClick={() => setSelectedBooking(null)}
                   className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
