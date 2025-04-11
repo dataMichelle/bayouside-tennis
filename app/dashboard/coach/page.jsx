@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Sidebar from "@/components/Sidebar";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -155,13 +154,12 @@ export default function CoachDashboard() {
 
   return (
     <div className="flex">
-      <Sidebar />
       <main className="flex-1 p-6">
         <h1 className="text-3xl font-bold mb-6">
           Coach Dashboard - {coachName}
         </h1>
 
-        <div className="bg-taupe-200 bg-opacity-80 border border-swamp-400 border-opacity-40 shadow-[0px_8px_16px_rgba(34,85,34,1)] p-6 rounded-lg">
+        <div className="bg-opacity-80 border border-swamp-400 border-opacity-40 shadow-[0px_8px_16px_rgba(34,85,34,1)] p-6 rounded-lg">
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">Weekly Schedule</h2>
             <FullCalendar

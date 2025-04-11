@@ -1,3 +1,4 @@
+/* globals.css */
 @import url("https://fonts.googleapis.com/css2?family=Barrio&family=Chelsea+Market&family=Nunito:ital,wght@0,200..1000;1,200..1000&family=Rubik+Distressed&display=swap");
 @import "tailwindcss";
 
@@ -12,7 +13,7 @@
   --color-taupe-100: #f0ece6;
   --color-taupe-200: #e0d9cc;
   --color-taupe-300: #c4b8a3;
-  --color-taupe-400: #a6987a; /* Ensure this color is defined */
+  --color-taupe-400: #a6987a;
   --color-teal-100: #e6f0f0;
   --color-teal-200: #cce0e0;
   --color-teal-300: #a3c4c4;
@@ -25,51 +26,27 @@
   --font-barrio: "Barrio", cursive;
 }
 
-/* Base Styles */
-/* Default Background */
-/* body {
-  background: linear-gradient(
-    to top left,
-    var(--color-swamp-100),
-    var(--color-swamp-600)
-  );
-  background-size: cover;
-  background-repeat: no-repeat;
-  min-height: 100vh;
-} */
-
+/* Home Page */
 body.home {
   position: relative;
   background: url("/background.png") center/cover no-repeat;
-  background-size: cover;
-  background-repeat: no-repeat;
   min-height: 100vh;
 }
 
-/* Gradient Overlay */
 body.home::after {
   content: "";
   position: absolute;
-  inset: 0; /* Covers the entire screen */
+  inset: 0;
   background: linear-gradient(
     to bottom right,
     rgba(34, 85, 34, 0.6),
     rgba(255, 255, 255, 1)
   );
   z-index: -1;
-  pointer-events: none; /* Ensures the overlay doesn't interfere with interaction */
+  pointer-events: none;
 }
 
-/* 🏠 Home Page */
-/* body.home {
-  background: linear-gradient(
-    to top left,
-    var(--color-swamp-100),
-    var(--color-swamp-600)
-  );
-} */
-
-/* ℹ️Inner Pages */
+/* Inner Pages */
 body.about,
 body.booking,
 body.contact,
@@ -79,12 +56,9 @@ body.signup,
 body.login {
   position: relative;
   background: url("/background.png") center/cover no-repeat;
-  background-size: cover;
-  background-repeat: no-repeat;
   min-height: 100vh;
 }
 
-/* Gradient Overlay */
 body.about::after,
 body.booking::after,
 body.contact::after,
@@ -94,14 +68,14 @@ body.signup::after,
 body.login::after {
   content: "";
   position: absolute;
-  inset: 0; /* Covers the entire screen */
+  inset: 0;
   background: linear-gradient(
     to bottom right,
     rgba(34, 85, 34, 0.6),
     rgba(255, 255, 255, 0.5)
   );
   z-index: -1;
-  pointer-events: none; /* Ensures the overlay doesn't interfere with interaction */
+  pointer-events: none;
 }
 
 h1 {
@@ -128,7 +102,6 @@ h1 {
   animation: jiggle 0.5s ease-in-out;
 }
 
-/* 3D Capsule Effect */
 .animate-3d-capsule {
   background: radial-gradient(
     circle at center,

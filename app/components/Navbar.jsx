@@ -10,7 +10,12 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 const navLinks = [
   { path: "/", label: "Home", public: true },
   { path: "/coaches", label: "Coaches", public: true, roles: ["player"] },
-  { path: "/players", label: "Players", public: true, roles: ["player"] },
+  {
+    path: "/players/info",
+    label: "Player Info",
+    public: true,
+    roles: ["player"],
+  },
   { path: "/dashboard", label: "Dashboard", public: false },
   { path: "/booking", label: "Book Court", public: true, roles: ["player"] },
   { path: "/about", label: "About Us", public: true },
