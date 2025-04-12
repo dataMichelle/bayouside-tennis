@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth } from "../lib/firebase";
+import { auth } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { usePayment } from "../context/PaymentContext";
+import { usePayment } from "../../context/PaymentContext";
 
 export default function BookingPage() {
   const [user, setUser] = useState(null);

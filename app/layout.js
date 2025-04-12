@@ -1,12 +1,11 @@
-// app/layout.jsx
-import "./styles/globals.css"; // Global styles
-import BodyWrapper from "./components/BodyWrapper";
+import "./styles/globals.css";
+import { PaymentProvider } from "./context/PaymentContext";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <BodyWrapper>{children}</BodyWrapper>
+        <PaymentProvider>{children}</PaymentProvider>
       </body>
     </html>
   );

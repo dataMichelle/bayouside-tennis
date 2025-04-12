@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Sidebar from "@/components/Sidebar";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -46,7 +45,6 @@ export default function CoachPlayers() {
 
   return (
     <div className="flex">
-      <Sidebar />
       <main className="flex-1 p-6">
         <h1 className="text-3xl font-bold mb-6">Players</h1>
         <table className="w-full border-collapse">

@@ -1,5 +1,5 @@
 // app/dashboard/layout.jsx
-import "../styles/dashboard.css";
+
 import CoachOwnerNavbar from "../components/CoachOwnerNavbar";
 import Sidebar from "../components/Sidebar";
 
