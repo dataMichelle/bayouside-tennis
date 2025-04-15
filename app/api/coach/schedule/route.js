@@ -24,6 +24,16 @@ export async function POST(request) {
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
+    // Normalize dates to UTC midnight
+    const startDate = new Date(startOfMonth);
+    startDate.setUTCHours(0, 0, 0, 0);
+    const endDate = new Date(endOfMonth);
+    endDate.setUTCHours(23, 59, 59, 999);
+
+    console.log(
+      `Normalized range: ${startDate.toISOString()} to ${endDate.toISOString()}`
+    );
+
     // Debug: Check all bookings for coachId
     const allBookings = await db
       .collection("bookings")
@@ -34,31 +44,28 @@ export async function POST(request) {
       JSON.stringify(allBookings, null, 2)
     );
 
-    // Debug: Check bookings without status filter
-    const bookingsNoStatus = await db
-      .collection("bookings")
-      .find({
-        coachId,
-        startTime: {
-          $gte: new Date(startOfMonth),
-          $lte: new Date(endOfMonth),
-        },
-      })
-      .toArray();
-    console.log(
-      `Bookings (any status) for coachId ${coachId}:`,
-      JSON.stringify(bookingsNoStatus, null, 2)
-    );
-
+    // Handle inconsistent startTime formats
     const bookings = await db
       .collection("bookings")
       .aggregate([
         {
+          // Convert startTime to ISODate if string
+          $addFields: {
+            startTimeISO: {
+              $cond: {
+                if: { $eq: [{ $type: "$startTime" }, "string"] },
+                then: { $toDate: "$startTime" },
+                else: "$startTime",
+              },
+            },
+          },
+        },
+        {
           $match: {
             coachId,
-            startTime: {
-              $gte: new Date(startOfMonth),
-              $lte: new Date(endOfMonth),
+            startTimeISO: {
+              $gte: startDate,
+              $lte: endDate,
             },
             status: "confirmed",
           },
@@ -66,8 +73,8 @@ export async function POST(request) {
         {
           $lookup: {
             from: "users",
-            localField: "playerId",
-            foreignField: "_id",
+            let: { playerId: { $ifNull: ["$playerId", "$userId"] } },
+            pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$playerId"] } } }],
             as: "user",
           },
         },
