@@ -29,13 +29,10 @@ export default function Sidebar() {
   }
 
   const sidebarLinks = {
-    player: [
-      { path: "/dashboard/player", label: "Court Schedule" },
-      { path: "/dashboard/player/payments", label: "Payments" },
-    ],
     coach: [
       { path: "/dashboard/coach", label: "Court Schedule" },
       { path: "/dashboard/coach/players", label: "Players" },
+      { path: "/dashboard/coach/payments", label: "Payments" },
     ],
     owner: [
       { path: "/dashboard/owner", label: "Court Schedule" },

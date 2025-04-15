@@ -1,61 +1,89 @@
-// app/context/PaymentContext.jsx
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useState, useContext } from "react";
 import { loadStripe } from "@stripe/stripe-js";
-
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-);
 
 const PaymentContext = createContext();
 
-export const PaymentProvider = ({ children }) => {
+export function PaymentProvider({ children }) {
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const initiatePayment = async (bookingIds, amount, description) => {
+  const initiatePayment = async (bookingIds, amount, description, userId) => {
     setIsProcessing(true);
     setError(null);
     try {
-      const stripe = await stripePromise;
+      console.log("Initiating Stripe checkout:", {
+        bookingIds,
+        amount,
+        description,
+        userId,
+      });
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingIds,
-          amount: amount * 100, // Convert to cents
-          currency: "usd",
+          userId,
+          amount,
+          currency: "USD",
           description,
         }),
       });
-      if (!response.ok) throw new Error("Failed to create Stripe session");
-      const { sessionId } = await response.json();
-      const result = await stripe.redirectToCheckout({ sessionId });
-      if (result.error) throw new Error(result.error.message);
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Stripe checkout failed:", data);
+        throw new Error(data.error || "Failed to initiate payment");
+      }
+
+      const stripe = await loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      );
+      if (!stripe) {
+        throw new Error("Failed to load Stripe");
+      }
+      const { error: stripeError } = await stripe.redirectToCheckout({
+        sessionId: data.sessionId,
+      });
+      if (stripeError) {
+        console.error("Stripe redirect error:", stripeError);
+        throw new Error(stripeError.message);
+      }
+
+      console.log("Stripe checkout initiated:", data);
+      return data;
     } catch (err) {
+      console.error("Initiate payment error:", err);
       setError(err.message);
+      throw err;
+    } finally {
       setIsProcessing(false);
-      throw err; // Let the caller handle the error if needed
     }
   };
 
   const confirmBookings = async (bookingIds) => {
     try {
-      const updatePromises = bookingIds.map((id) =>
+      console.log("Confirming bookings:", bookingIds);
+      const confirmPromises = bookingIds.map((id) =>
         fetch(`/api/bookings/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "confirmed" }),
         })
       );
-      const responses = await Promise.all(updatePromises);
+
+      const responses = await Promise.all(confirmPromises);
       for (const res of responses) {
-        if (!res.ok)
-          throw new Error(`Failed to confirm booking: ${res.statusText}`);
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.error("Confirm booking error:", errorData);
+          throw new Error(errorData.error || "Failed to confirm booking");
+        }
       }
+      console.log("Bookings confirmed successfully:", bookingIds);
+      return { success: true };
     } catch (err) {
-      setError(err.message);
+      console.error("Confirm bookings error:", err);
       throw err;
     }
   };
@@ -67,11 +95,8 @@ export const PaymentProvider = ({ children }) => {
       {children}
     </PaymentContext.Provider>
   );
-};
+}
 
-export const usePayment = () => {
-  const context = useContext(PaymentContext);
-  if (!context)
-    throw new Error("usePayment must be used within a PaymentProvider");
-  return context;
-};
+export function usePayment() {
+  return useContext(PaymentContext);
+}

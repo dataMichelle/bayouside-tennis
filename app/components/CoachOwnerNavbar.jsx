@@ -40,7 +40,7 @@ export default function CoachOwnerNavbar() {
 
   return (
     <nav className="bg-gray-800 text-white p-4">
-      <ul className="flex justify-center space-x-4">
+      <ul className="flex justify-center space-x-5">
         <li>
           <Link href="/">Home</Link>
         </li>

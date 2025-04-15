@@ -31,43 +31,57 @@ export default function CoachPlayers() {
         body: JSON.stringify({ coachId }),
       });
       const data = await response.json();
-      if (response.ok) setPlayers(data.players);
-      else throw new Error(data.error || "Failed to fetch players");
+      if (response.ok) {
+        console.log("Players fetched:", JSON.stringify(data.players, null, 2));
+        setPlayers(data.players);
+      } else {
+        throw new Error(data.error || "Failed to fetch players");
+      }
     } catch (err) {
+      console.error("Fetch error:", err.message);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (loading) {
+    return <div className="text-center py-4">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-600 text-center py-4">Error: {error}</div>;
+  }
 
   return (
-    <div className="flex">
-      <main className="flex-1 p-6">
-        <h1 className="text-3xl font-bold mb-6">Players</h1>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border p-2">Name</th>
-              <th className="border p-2">Email</th>
-              <th className="border p-2">Phone</th>
-              <th className="border p-2">Payment Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {players.map((player) => (
-              <tr key={player._id} className="border">
-                <td className="p-2">{player.name}</td>
-                <td className="p-2">{player.email}</td>
-                <td className="p-2">{player.phone}</td>
-                <td className="p-2">{player.paymentStatus}</td>
+    <div>
+      <h1 className="text-3xl font-bold mb-6">My Players</h1>
+      {players.length === 0 ? (
+        <p className="text-gray-600 text-center">No players found.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse bg-white shadow-md rounded-lg">
+            <thead>
+              <tr className="bg-gray-200 text-gray-700">
+                <th className="border p-3 text-left">Name</th>
+                <th className="border p-3 text-left">Email</th>
+                <th className="border p-3 text-left">Phone</th>
+                <th className="border p-3 text-left">Payment Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </main>
+            </thead>
+            <tbody>
+              {players.map((player) => (
+                <tr key={player._id} className="border-b hover:bg-gray-50">
+                  <td className="p-3">{player.name || "N/A"}</td>
+                  <td className="p-3">{player.email || "N/A"}</td>
+                  <td className="p-3">{player.phone || "N/A"}</td>
+                  <td className="p-3">{player.paymentStatus || "N/A"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,35 +1,62 @@
-import { ObjectId } from "mongodb";
+import { NextResponse } from "next/server";
 import clientPromise from "../../../utils/mongodb";
+import { ObjectId } from "mongodb";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { bookingId } = await req.json();
+    const { bookingId } = await request.json();
+    if (!bookingId) {
+      return NextResponse.json(
+        { error: "Booking ID is required" },
+        { status: 400 }
+      );
+    }
+
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
     const booking = await db
       .collection("bookings")
-      .findOne({ _id: new ObjectId(bookingId) });
-    if (!booking) throw new Error("Booking not found");
+      .aggregate([
+        {
+          $match: {
+            _id: new ObjectId(bookingId),
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "playerId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: "$_id",
+            playerName: { $ifNull: ["$user.name", "Unknown"] },
+            startTime: "$startTime",
+            endTime: "$endTime",
+            status: "$status",
+            ballMachine: "$ballMachine",
+            totalCost: "$totalCost",
+          },
+        },
+      ])
+      .next();
 
-    const player = await db
-      .collection("users")
-      .findOne({ _id: new ObjectId(booking.userId) });
-    if (!player) throw new Error("Player not found");
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
 
-    const payment = await db.collection("payments").findOne({ bookingId });
-
-    return new Response(
-      JSON.stringify({
-        playerName: player.name,
-        paymentStatus: payment ? payment.status : "Pending",
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    console.log(`Booking details for bookingId ${bookingId}:`, booking);
+    return NextResponse.json(booking, { status: 200 });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error("Error fetching booking details:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch booking details" },
+      { status: 500 }
+    );
   }
 }

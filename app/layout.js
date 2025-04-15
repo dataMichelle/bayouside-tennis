@@ -3,9 +3,11 @@ import { PaymentProvider } from "./context/PaymentContext";
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>
-        <PaymentProvider>{children}</PaymentProvider>
+    <html>
+      <body className="min-h-screen" suppressHydrationWarning>
+        <PaymentProvider>
+          {children} {/* No navbar here */}
+        </PaymentProvider>
       </body>
     </html>
   );

@@ -1,4 +1,3 @@
-// app/booking/page.jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,9 +6,9 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { usePayment } from "../../context/PaymentContext";
+import { usePayment, PaymentProvider } from "../../context/PaymentContext";
 
-export default function BookingPage() {
+function BookingContent() {
   const [user, setUser] = useState(null);
   const [coaches, setCoaches] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -73,15 +72,15 @@ export default function BookingPage() {
           if (!settingsRes.ok)
             throw new Error(
               `Failed to fetch settings: ${
-                settingsRes.status
-              } ${await settingsRes.text()}`
+                coachRes.status
+              } ${await coachRes.text()}`
             );
           const coachData = await coachRes.json();
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
           console.log("Data fetched:", {
-            coaches: coachData,
-            bookings: bookingsData,
+            coaches: coachData.map(c => ({ id: c._id, name: c.name })),
+            bookings: bookingsData.length,
             settings: settingsData,
           });
           setCoaches(coachData);
@@ -91,9 +90,15 @@ export default function BookingPage() {
           const success = searchParams.get("success");
           const bookingIds = searchParams.get("bookingIds");
           if (success === "true" && bookingIds) {
-            const ids = JSON.parse(decodeURIComponent(bookingIds));
-            console.log("Confirming bookings:", ids);
-            await confirmBookings(ids);
+            try {
+              const ids = JSON.parse(decodeURIComponent(bookingIds));
+              console.log("Confirming bookings on redirect:", ids);
+              await confirmBookings(ids);
+              console.log("Bookings confirmed:", ids);
+            } catch (err) {
+              console.error("Error confirming bookings on redirect:", err);
+              setError("Failed to confirm bookings: " + err.message);
+            }
             router.replace("/booking");
           }
         } catch (err) {
@@ -126,8 +131,17 @@ export default function BookingPage() {
   };
 
   const generateHourlySlots = (startTime, endTime, day, date) => {
+    console.log(`Generating slots for ${day}: ${startTime} - ${endTime}`);
+    if (!startTime || !endTime) {
+      console.log("Invalid time format, returning empty slots");
+      return [];
+    }
     const start = parseInt(startTime.split(":")[0], 10);
     const end = parseInt(endTime.split(":")[0], 10);
+    if (isNaN(start) || isNaN(end) || start >= end) {
+      console.log("Invalid start/end hours:", { start, end });
+      return [];
+    }
     const slots = [];
     for (let hour = start; hour < end; hour++) {
       const slotStart = `${hour.toString().padStart(2, "0")}:00`;
@@ -141,20 +155,33 @@ export default function BookingPage() {
         date: slotDate,
       });
     }
+    console.log(`Generated ${slots.length} slots:`, slots);
     return slots;
   };
 
   const getAvailableSlotsForDay = (date) => {
-    if (!selectedCoach) return [];
+    console.log(`Getting slots for date: ${date.toISOString()}`);
+    if (!selectedCoach) {
+      console.log("No coach selected");
+      return [];
+    }
     const coach = coaches.find((c) => c._id === selectedCoach) || {
       availability: [],
+      name: "Unknown",
     };
     const availability = Array.isArray(coach.availability)
       ? coach.availability
       : [];
+    console.log(`Coach ${coach.name} availability:`, availability);
     const dayName = date.toLocaleString("en-US", { weekday: "long" });
-    const dayAvailability = availability.find((avail) => avail.day === dayName);
-    if (!dayAvailability) return [];
+    const dayAvailability = availability.find(
+      (avail) => avail.day?.toLowerCase() === dayName.toLowerCase()
+    );
+    console.log(`Day ${dayName} availability:`, dayAvailability);
+    if (!dayAvailability) {
+      console.log(`No availability for ${dayName}`);
+      return [];
+    }
 
     const allSlots = generateHourlySlots(
       dayAvailability.startTime,
@@ -162,7 +189,7 @@ export default function BookingPage() {
       dayName,
       date
     );
-    return allSlots.filter((slot) => {
+    const availableSlots = allSlots.filter((slot) => {
       return !bookings.some((booking) => {
         const sameCoach =
           booking.coachId === selectedCoach ||
@@ -183,6 +210,8 @@ export default function BookingPage() {
         return sameCoach && timeOverlap && isPendingOrConfirmed;
       });
     });
+    console.log(`Available slots for ${dayName}:`, availableSlots);
+    return availableSlots;
   };
 
   const tileContent = ({ date, view }) => {
@@ -196,6 +225,7 @@ export default function BookingPage() {
   };
 
   const handleDateClick = (date) => {
+    console.log(`Date clicked: ${date.toISOString()}`);
     const availableSlots = getAvailableSlotsForDay(date);
     if (availableSlots.length > 0) {
       setCurrentDay(date);
@@ -210,10 +240,14 @@ export default function BookingPage() {
         }))
       );
       setSlotModalOpen(true);
+    } else {
+      console.log("No slots available for selected date");
+      setError("No available slots for this date");
     }
   };
 
   const handleSlotToggle = (slot) => {
+    console.log(`Toggling slot: ${slot.startTime}`);
     setSelectedDaySlots((prev) =>
       prev.map((s) =>
         s.startTime === slot.startTime &&
@@ -225,7 +259,13 @@ export default function BookingPage() {
   };
 
   const confirmSlotSelection = () => {
-    const newSelectedSlots = selectedDaySlots.filter((s) => s.isSelected);
+    console.log("Confirming slot selection");
+    const newSelectedSlots = selectedDaySlots
+      .filter((s) => s.isSelected)
+      .map((slot) => ({
+        ...slot,
+        date: new Date(slot.date),
+      }));
     setSelectedSlots((prev) => [
       ...prev.filter(
         (s) => s.date.toDateString() !== currentDay.toDateString()
@@ -233,9 +273,10 @@ export default function BookingPage() {
       ...newSelectedSlots,
     ]);
     setSlotModalOpen(false);
+    console.log("Updated selected slots:", newSelectedSlots);
   };
 
-  const calculateTotalCost = () => {
+  const calculateCostBreakdown = () => {
     const hours = selectedSlots.length;
     const coach =
       selectedCoach === "no-coach"
@@ -244,11 +285,25 @@ export default function BookingPage() {
     const coachRate = coach && coach.rate ? parseFloat(coach.rate) : 0;
     const courtCost = settings.courtRentalCost || 20;
     const ballMachineCost = ballMachine ? settings.ballMachineCost || 40 : 0;
-    return (coachRate + courtCost + ballMachineCost) * hours;
+    const total = (coachRate + courtCost + ballMachineCost) * hours;
+    return {
+      coachFee: coachRate * hours,
+      courtRental: courtCost * hours,
+      ballMachine: ballMachineCost * hours,
+      total,
+    };
+  };
+
+  const calculateTotalCost = () => {
+    const { total } = calculateCostBreakdown();
+    return total;
   };
 
   const handleBookingConfirm = async () => {
-    if (!user || selectedSlots.length === 0) return;
+    if (!user || selectedSlots.length === 0) {
+      setError("Please select slots");
+      return;
+    }
     try {
       const sortedSlots = [...selectedSlots].sort((a, b) => a.date - b.date);
       const mergedBookings = [];
@@ -289,23 +344,21 @@ export default function BookingPage() {
       mergedBookings.push({ ...currentBooking });
 
       const bookingPromises = mergedBookings.map((slot) => {
+        const slotStart = new Date(slot.date);
+        slotStart.setHours(parseInt(slot.startTime.split(":")[0]), 0, 0, 0);
+        const slotEnd = new Date(slot.date);
+        slotEnd.setHours(parseInt(slot.endTime.split(":")[0]), 0, 0, 0);
         const bookingData = {
           playerId: user.uid,
           coachId: selectedCoach === "no-coach" ? null : selectedCoach,
           day: slot.day,
-          startTime: slot.date.toISOString(),
-          endTime: new Date(slot.date).setHours(
-            parseInt(slot.endTime.split(":")[0]),
-            0,
-            0,
-            0
-          ),
+          startTime: slotStart.toISOString(),
+          endTime: slotEnd.toISOString(),
           ballMachine,
           status: "pending",
-          totalCost: calculateTotalCost(),
+          totalCost: calculateTotalCost() / mergedBookings.length,
           createdAt: new Date().toISOString(),
         };
-        bookingData.endTime = new Date(bookingData.endTime).toISOString();
         console.log("Submitting booking:", bookingData);
         return fetch("/api/bookings", {
           method: "POST",
@@ -317,7 +370,10 @@ export default function BookingPage() {
       const responses = await Promise.all(bookingPromises);
       const bookingIds = [];
       for (const res of responses) {
-        if (!res.ok) throw new Error("Failed to save booking");
+        if (!res.ok) {
+          console.error("Booking response error:", await res.text());
+          throw new Error("Failed to save booking");
+        }
         const data = await res.json();
         bookingIds.push(data.id);
       }
@@ -332,13 +388,61 @@ export default function BookingPage() {
 
   const handlePaymentConfirm = async () => {
     try {
-      await initiatePayment(
+      console.log("Initiating payment for booking IDs:", pendingBookingIds);
+      const paymentIntent = await initiatePayment(
         pendingBookingIds,
         calculateTotalCost(),
-        `Booking for ${selectedSlots.length} slot(s)`
+        `Booking for ${selectedSlots.length} slot(s)`,
+        user.uid
       );
+      console.log("Payment initiated:", paymentIntent);
+
+      // Fallback: Save payments
+      const paymentPromises = pendingBookingIds.map((bookingId) => {
+        const paymentData = {
+          bookingId,
+          userId: user.uid,
+          amount: Math.round(calculateTotalCost() * 100 / pendingBookingIds.length),
+          currency: "USD",
+          stripePaymentId: paymentIntent?.id || "fallback_" + Date.now(),
+        };
+        console.log("Saving fallback payment for bookingId:", bookingId, paymentData);
+        return fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(paymentData),
+        });
+      });
+
+      const paymentResponses = await Promise.all(paymentPromises);
+      for (const res of paymentResponses) {
+        if (!res.ok) {
+          console.error("Fallback payment error:", await res.text());
+        } else {
+          console.log("Fallback payment saved:", await res.json());
+        }
+      }
+
+      // Fallback: Confirm bookings
+      console.log("Confirming bookings:", pendingBookingIds);
+      await confirmBookings(pendingBookingIds);
+
+      // Refresh bookings
+      const bookingsResponse = await fetch("/api/bookings");
+      if (!bookingsResponse.ok) {
+        throw new Error("Failed to fetch bookings");
+      }
+      const updatedBookings = await bookingsResponse.json();
+      console.log("Updated bookings:", JSON.stringify(updatedBookings, null, 2));
+      setBookings(
+        updatedBookings.sort(
+          (a, b) => new Date(a.startTime) - new Date(b.startTime)
+        )
+      );
+      setPaymentModalOpen(false);
     } catch (err) {
       console.error("Payment confirm error:", err.message);
+      setError("Payment failed: " + err.message);
       setPaymentModalOpen(false);
     }
   };
@@ -369,6 +473,7 @@ export default function BookingPage() {
               onChange={(e) => {
                 setSelectedCoach(e.target.value);
                 setSelectedSlots([]);
+                console.log("Selected coach ID:", e.target.value);
               }}
               className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
@@ -464,7 +569,7 @@ export default function BookingPage() {
               {selectedCoach === "no-coach"
                 ? "No Coach"
                 : `Coach: ${
-                    coaches.find((c) => c._id === selectedCoach)?.name
+                    coaches.find((c) => c._id === selectedCoach)?.name || "Unknown"
                   }`}
             </p>
             <ul className="mb-4">
@@ -479,9 +584,23 @@ export default function BookingPage() {
               ))}
             </ul>
             <p>Ball Machine: {ballMachine ? "Yes" : "No"}</p>
-            <p className="mt-2 font-semibold">
-              Total Cost: ${calculateTotalCost().toFixed(2)}
-            </p>
+            <div className="mt-2">
+              <h3 className="font-semibold">Cost Breakdown</h3>
+              <ul className="list-none">
+                <li>
+                  Coach Fee: ${calculateCostBreakdown().coachFee.toFixed(2)}
+                </li>
+                <li>
+                  Court Rental: ${calculateCostBreakdown().courtRental.toFixed(2)}
+                </li>
+                <li>
+                  Ball Machine: ${calculateCostBreakdown().ballMachine.toFixed(2)}
+                </li>
+                <li className="font-semibold mt-2">
+                  Total: ${calculateCostBreakdown().total.toFixed(2)}
+                </li>
+              </ul>
+            </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button
                 onClick={() => setModalOpen(false)}
@@ -510,30 +629,31 @@ export default function BookingPage() {
               ✕
             </button>
             <h2 className="text-xl font-bold mb-4">
-              Select Slots for {currentDay.toLocaleDateString()} (CDT)
+              Select Slots for {currentDay?.toLocaleDateString() || "Unknown"} (CDT)
             </h2>
-            <div className="space-y-2">
-              {selectedDaySlots.map((slot, index) => (
-                <div key={index} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id={`day-slot-${index}`}
-                    checked={slot.isSelected}
-                    onChange={() => handleSlotToggle(slot)}
-                    className="mr-2"
-                  />
-                  <label
-                    htmlFor={`day-slot-${index}`}
-                    className="text-neutrals-700 dark:text-neutrals-300"
-                  >
-                    {formatTimeTo12HourCDT(slot.date)} -{" "}
-                    {formatTimeTo12HourCDT(
-                      new Date(slot.date).setHours(slot.date.getHours() + 1)
-                    )}
-                  </label>
-                </div>
-              ))}
-            </div>
+            {selectedDaySlots.length > 0 ? (
+              <div className="space-y-2">
+                {selectedDaySlots.map((slot, index) => (
+                  <div key={index} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`day-slot-${index}`}
+                      checked={slot.isSelected}
+                      onChange={() => handleSlotToggle(slot)}
+                      className="mr-2"
+                    />
+                    <label
+                      htmlFor={`day-slot-${index}`}
+                      className="text-neutrals-700 dark:text-neutrals-300"
+                    >
+                      {slot.startTime} - {slot.endTime}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600">No slots available for this day.</p>
+            )}
             <div className="mt-6 flex justify-end space-x-4">
               <button
                 onClick={() => setSlotModalOpen(false)}
@@ -544,6 +664,7 @@ export default function BookingPage() {
               <button
                 onClick={confirmSlotSelection}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                disabled={selectedDaySlots.every((slot) => !slot.isSelected)}
               >
                 Confirm Selection
               </button>
@@ -563,9 +684,23 @@ export default function BookingPage() {
             </button>
             <h2 className="text-xl font-bold mb-4">Payment Required</h2>
             <p>Booking saved as pending. Complete payment to confirm.</p>
-            <p className="mt-2 font-semibold">
-              Total: ${calculateTotalCost().toFixed(2)}
-            </p>
+            <div className="mt-2">
+              <h3 className="font-semibold">Cost Breakdown</h3>
+              <ul className="list-none">
+                <li>
+                  Coach Fee: ${calculateCostBreakdown().coachFee.toFixed(2)}
+                </li>
+                <li>
+                  Court Rental: ${calculateCostBreakdown().courtRental.toFixed(2)}
+                </li>
+                <li>
+                  Ball Machine: ${calculateCostBreakdown().ballMachine.toFixed(2)}
+                </li>
+                <li className="font-semibold mt-2">
+                  Total: ${calculateCostBreakdown().total.toFixed(2)}
+                </li>
+              </ul>
+            </div>
             {paymentError && (
               <p className="text-red-500 mt-2">{paymentError}</p>
             )}
@@ -589,5 +724,13 @@ export default function BookingPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <PaymentProvider>
+      <BookingContent />
+    </PaymentProvider>
   );
 }

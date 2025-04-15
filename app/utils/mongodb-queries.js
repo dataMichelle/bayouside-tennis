@@ -1,18 +1,12 @@
-import { NextResponse } from "next/server";
-import clientPromise from "../../../utils/mongodb";
+import clientPromise from "./mongodb";
 import { ObjectId } from "mongodb";
 
-export async function POST(request) {
+export async function getPaymentsForCoach(coachId) {
   try {
-    const { coachId } = await request.json();
-    if (!coachId) {
-      console.error("Missing coachId");
-      return NextResponse.json({ error: "Missing coachId" }, { status: 400 });
-    }
-
-    console.log(`Querying payments for coachId: ${coachId}`);
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
+
+    console.log(`Querying payments for coachId: ${coachId}`);
 
     const bookings = await db
       .collection("bookings")
@@ -26,7 +20,7 @@ export async function POST(request) {
 
     if (bookings.length === 0) {
       console.log(`No bookings found for coachId: ${coachId}`);
-      return NextResponse.json([], { status: 200 });
+      return [];
     }
 
     const bookingIds = bookings.map((booking) => new ObjectId(booking._id));
@@ -101,12 +95,12 @@ export async function POST(request) {
       .toArray();
 
     console.log(`Payments found for coachId ${coachId}:`, payments);
-    return NextResponse.json(payments, { status: 200 });
+    return payments;
   } catch (error) {
-    console.error(`Error fetching payments for coachId:`, error);
-    return NextResponse.json(
-      { error: "Failed to fetch payments" },
-      { status: 500 }
+    console.error(
+      `Error in getPaymentsForCoach for coachId ${coachId}:`,
+      error
     );
+    throw error;
   }
 }

@@ -1,36 +1,62 @@
-// app/api/coach/schedule/route.js
+import { NextResponse } from "next/server";
 import clientPromise from "../../../utils/mongodb";
+import { ObjectId } from "mongodb";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { coachId, startOfMonth, endOfMonth } = await req.json();
-    console.log("Schedule query:", { coachId, startOfMonth, endOfMonth });
+    const { coachId, startOfMonth, endOfMonth } = await request.json();
+    if (!coachId || !startOfMonth || !endOfMonth) {
+      console.error("Missing required fields:", { coachId, startOfMonth, endOfMonth });
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
 
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
+
     const bookings = await db
       .collection("bookings")
-      .find({
-        coachId,
-        startTime: { $gte: startOfMonth, $lte: endOfMonth }, // Use strings as-is
-      })
+      .aggregate([
+        {
+          $match: {
+            coachId,
+            startTime: {
+              $gte: new Date(startOfMonth),
+              $lte: new Date(endOfMonth),
+            },
+            status: "confirmed",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "playerId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: "$_id",
+            playerName: { $ifNull: ["$user.name", "Unknown"] },
+            startTime: "$startTime",
+            endTime: "$endTime",
+            status: "$status",
+            ballMachine: "$ballMachine",
+            totalCost: "$totalCost",
+            coachId: "$coachId",
+          },
+        },
+      ])
       .toArray();
 
     console.log(
-      "Fetched bookings for coachId:",
-      coachId,
-      "Bookings:",
-      JSON.stringify(bookings, null, 2)
+      `Bookings for coachId ${coachId} from ${startOfMonth} to ${endOfMonth}:`,
+      bookings
     );
-    return new Response(JSON.stringify({ bookings }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ bookings }, { status: 200 });
   } catch (error) {
-    console.error("Schedule fetch error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error("Error fetching schedule:", error);
+    return NextResponse.json({ error: "Failed to fetch schedule" }, { status: 500 });
   }
 }

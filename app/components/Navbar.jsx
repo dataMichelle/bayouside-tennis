@@ -16,7 +16,18 @@ const navLinks = [
     public: true,
     roles: ["player"],
   },
-  { path: "/dashboard", label: "Dashboard", public: false },
+  {
+    path: "/players/reservations",
+    label: "Reservations",
+    public: false,
+    roles: ["player"],
+  },
+  {
+    path: "/dashboard",
+    label: "Dashboard",
+    public: false,
+    roles: ["coach", "owner"],
+  },
   { path: "/booking", label: "Book Court", public: true, roles: ["player"] },
   { path: "/about", label: "About Us", public: true },
   { path: "/signup", label: "Sign Up", public: true },
@@ -24,13 +35,12 @@ const navLinks = [
 
 export default function Navbar() {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // Initialize as null
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     console.log("Navbar useEffect - Starting...");
-    // Set initial role from localStorage client-side
     setRole(localStorage.getItem("userRole") || null);
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -54,16 +64,26 @@ export default function Navbar() {
           const responseText = await response.text();
           console.log("Navbar - API Response Text:", responseText);
           if (!response.ok) {
-            throw new Error(`API error: ${response.status} - ${responseText}`);
+            console.warn(`API error: ${response.status} - ${responseText}`);
+            // Handle 404 by setting default role
+            const fetchedRole = "player";
+            setRole(fetchedRole);
+            localStorage.setItem("userRole", fetchedRole);
+            console.log("Set default role to player due to API error");
+          } else {
+            const data = JSON.parse(responseText);
+            const fetchedRole = data.role || "player";
+            setRole(fetchedRole);
+            localStorage.setItem("userRole", fetchedRole);
+            console.log("Fetched Role from API:", fetchedRole);
           }
-          const data = JSON.parse(responseText);
-          const fetchedRole = data.role || "player";
-          setRole(fetchedRole);
-          localStorage.setItem("userRole", fetchedRole);
-          console.log("Fetched Role from API:", fetchedRole);
         } catch (error) {
           console.error("Error fetching user role:", error);
-          // Preserve localStorage role if API fails
+          // Fallback to player role on error
+          const fetchedRole = "player";
+          setRole(fetchedRole);
+          localStorage.setItem("userRole", fetchedRole);
+          console.log("Set default role to player due to fetch error");
         }
       } else {
         setRole(null);
@@ -123,18 +143,20 @@ export default function Navbar() {
       >
         <nav className="flex items-center space-x-6">
           {linksWithAuth.map((link) => {
-            const shouldShow = link.public || isLoggedIn;
-            const dashboardPath =
+            const shouldShow =
+              (link.public && (!link.roles || !isLoggedIn)) ||
+              (isLoggedIn && (!link.roles || link.roles.includes(role)));
+            const linkPath =
               link.label === "Dashboard" && isLoggedIn && role
                 ? `/dashboard/${role}`
                 : link.path;
             console.log(
-              `Link: ${link.label}, Path: ${dashboardPath}, Should Show: ${shouldShow}`
+              `Link: ${link.label}, Path: ${linkPath}, Should Show: ${shouldShow}, Role: ${role}`
             );
             return shouldShow ? (
               <Link
                 key={link.path}
-                href={dashboardPath}
+                href={linkPath}
                 onClick={link.onClick || null}
                 className="text-black text-md font-nunito hover:text-orange-700"
               >

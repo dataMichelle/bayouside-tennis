@@ -1,4 +1,3 @@
-// app/dashboard/coach/page.jsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -17,7 +16,7 @@ export default function CoachDashboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    console.log("Local timezone:", new Date().toString());
+    console.log("CoachDashboard - Local timezone:", new Date().toString());
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const coachId = user.uid;
@@ -45,7 +44,7 @@ export default function CoachDashboard() {
       );
       const endOfMonth = new Date(
         now.getFullYear(),
-        now.getMonth() + 1,
+        now.getMonth() + 2,
         0,
         23,
         59,
@@ -77,11 +76,14 @@ export default function CoachDashboard() {
       const scheduleData = await scheduleResponse.json();
       if (scheduleResponse.ok) {
         console.log(
-          "Coach schedule:",
+          "Coach schedule fetched:",
           JSON.stringify(scheduleData.bookings, null, 2)
         );
         setSchedule(scheduleData.bookings);
-      } else throw new Error(scheduleData.error || "Failed to fetch schedule");
+      } else {
+        console.error("Failed to fetch schedule:", scheduleData.error);
+        throw new Error(scheduleData.error || "Failed to fetch schedule");
+      }
 
       const feeResponse = await fetch("/api/coach/fee", {
         method: "POST",
@@ -95,7 +97,10 @@ export default function CoachDashboard() {
       } else if (feeResponse.status === 404) {
         setFee("Not set");
         setCoachName("Unknown Coach");
-      } else throw new Error(feeData.error || "Failed to fetch fee");
+      } else {
+        console.error("Failed to fetch fee:", feeData.error);
+        throw new Error(feeData.error || "Failed to fetch fee");
+      }
     } catch (err) {
       console.error("Fetch error:", err.message);
       setError(err.message);
@@ -114,19 +119,26 @@ export default function CoachDashboard() {
       });
       const data = await response.json();
       if (response.ok) {
+        console.log("Booking details fetched:", data);
         setSelectedBooking(data);
       } else {
+        console.error("Failed to fetch booking details:", data.error);
         throw new Error(data.error || "Failed to fetch booking details");
       }
     } catch (error) {
+      console.error("Error fetching booking details:", error.message);
       alert("Failed to fetch booking details: " + error.message);
     }
   }, []);
 
   const handleFeeSubmit = async (e) => {
     e.preventDefault();
-    const coachId = auth.currentUser.uid;
+    const coachId = auth.currentUser?.uid;
     const newFee = parseFloat(fee).toString();
+    if (!coachId || isNaN(newFee)) {
+      setError("Invalid fee or user not authenticated");
+      return;
+    }
     try {
       const response = await fetch("/api/coach/update-fee", {
         method: "POST",
@@ -134,9 +146,13 @@ export default function CoachDashboard() {
         body: JSON.stringify({ coachId, newFee }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to update fee");
+      if (!response.ok) {
+        console.error("Failed to update fee:", data.error);
+        throw new Error(data.error || "Failed to update fee");
+      }
       alert("Fee updated successfully!");
     } catch (err) {
+      console.error("Fee update error:", err.message);
       setError(err.message);
     }
   };
@@ -155,18 +171,15 @@ export default function CoachDashboard() {
   return (
     <div className="flex">
       <main className="flex-1 p-6">
-        <h1 className="text-3xl font-bold mb-6">
-          Coach Dashboard - {coachName}
-        </h1>
-
         <div className="bg-opacity-80 border border-swamp-400 border-opacity-40 shadow-[0px_8px_16px_rgba(34,85,34,1)] p-6 rounded-lg">
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">Weekly Schedule</h2>
+            {error && <p className="text-red-500 mb-4">{error}</p>}
             <FullCalendar
               plugins={[dayGridPlugin, timeGridPlugin]}
               initialView="timeGridWeek"
               initialDate="2025-04-07"
-              timeZone="America/Chicago" // Use CDT directly
+              timeZone="America/Chicago"
               slotMinTime="06:00:00"
               slotMaxTime="21:00:00"
               slotDuration="01:00:00"
@@ -186,16 +199,13 @@ export default function CoachDashboard() {
                 right: "dayGridMonth,timeGridWeek",
               }}
               events={schedule.map((booking) => {
-                // Convert UTC to local CDT (subtract 5 hours)
-                const startCDT = new Date(booking.startTime);
-                startCDT.setHours(startCDT.getHours() - 5);
-                const endCDT = new Date(booking.endTime);
-                endCDT.setHours(endCDT.getHours() - 5);
                 const event = {
                   id: booking._id.toString(),
-                  title: booking.coachId ? "Coaching" : "Court Booking",
-                  start: startCDT.toISOString(), // "2025-04-10T10:00:00.000Z" -> "2025-04-10T10:00:00.000Z"
-                  end: endCDT.toISOString(), // "2025-04-10T11:00:00.000Z" -> "2025-04-10T11:00:00.000Z"
+                  title: booking.coachId
+                    ? `Coaching: ${booking.playerName || "Unknown"}`
+                    : "Court Booking",
+                  start: booking.startTime,
+                  end: booking.endTime,
                   backgroundColor: booking.coachId ? "green" : "blue",
                   borderColor: booking.coachId ? "green" : "blue",
                 };
@@ -211,6 +221,7 @@ export default function CoachDashboard() {
               eventDidMount={(info) => {
                 console.log("Event rendered:", {
                   id: info.event.id,
+                  title: info.event.title,
                   start: info.event.start.toISOString(),
                   end: info.event.end.toISOString(),
                   displayDate: info.event.start.toLocaleDateString("en-US", {
@@ -222,22 +233,16 @@ export default function CoachDashboard() {
                     hour: "numeric",
                     minute: "2-digit",
                   }),
-                  displayEndTime: info.event.end.toLocaleTimeString("en-US", {
-                    timeZone: "America/Chicago",
-                    hour12: true,
-                    hour: "numeric",
-                    minute: "2-digit",
-                  }),
                 });
               }}
             />
             {selectedBooking && (
               <div className="mt-4 p-4 border rounded bg-gray-100 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
                 <h3 className="text-lg font-bold">Booking Details</h3>
-                <p>Player: {selectedBooking.playerName}</p>
+                <p>Player: {selectedBooking.playerName || "Unknown"}</p>
                 <p>Start: {formatTimeTo12HourCDT(selectedBooking.startTime)}</p>
                 <p>End: {formatTimeTo12HourCDT(selectedBooking.endTime)}</p>
-                <p>Payment Status: {selectedBooking.status}</p>
+                <p>Status: {selectedBooking.status}</p>
                 <button
                   onClick={() => setSelectedBooking(null)}
                   className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"

@@ -79,7 +79,7 @@ export default function Login() {
       let callbackUrl;
       switch (data.role) {
         case "player":
-          callbackUrl = "/dashboard/player";
+          callbackUrl = "/players/reservations";
           break;
         case "coach":
           callbackUrl = "/dashboard/coach";
