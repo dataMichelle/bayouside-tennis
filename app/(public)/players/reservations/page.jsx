@@ -108,7 +108,7 @@ function ReservationsContent() {
       );
       console.log("Payment initiated:", paymentIntent);
 
-      // Fallback: Save payment if webhook hasn't yet
+      // Fallback: Save payment
       const paymentData = {
         bookingId: booking._id,
         userId: user.uid,

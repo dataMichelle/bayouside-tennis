@@ -6,19 +6,40 @@ export async function POST(request) {
   try {
     const { coachId, startOfMonth, endOfMonth } = await request.json();
     if (!coachId || !startOfMonth || !endOfMonth) {
-      console.error("Missing required fields:", { coachId, startOfMonth, endOfMonth });
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      console.error("Missing required fields:", {
+        coachId,
+        startOfMonth,
+        endOfMonth,
+      });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
+
+    console.log(
+      `Fetching bookings for coachId: ${coachId}, range: ${startOfMonth} to ${endOfMonth}`
+    );
 
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
+
+    // Debug: Check all bookings for coachId
+    const allBookings = await db
+      .collection("bookings")
+      .find({ coachId })
+      .toArray();
+    console.log(
+      `All bookings for coachId ${coachId}:`,
+      JSON.stringify(allBookings, null, 2)
+    );
 
     const bookings = await db
       .collection("bookings")
       .aggregate([
         {
           $match: {
-            coachId,
+            coachId, // String (Firebase UID)
             startTime: {
               $gte: new Date(startOfMonth),
               $lte: new Date(endOfMonth),
@@ -51,12 +72,15 @@ export async function POST(request) {
       .toArray();
 
     console.log(
-      `Bookings for coachId ${coachId} from ${startOfMonth} to ${endOfMonth}:`,
-      bookings
+      `Confirmed bookings for coachId ${coachId} from ${startOfMonth} to ${endOfMonth}:`,
+      JSON.stringify(bookings, null, 2)
     );
     return NextResponse.json({ bookings }, { status: 200 });
   } catch (error) {
     console.error("Error fetching schedule:", error);
-    return NextResponse.json({ error: "Failed to fetch schedule" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch schedule" },
+      { status: 500 }
+    );
   }
 }
