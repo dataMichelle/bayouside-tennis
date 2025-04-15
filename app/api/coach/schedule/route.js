@@ -24,7 +24,7 @@ export async function POST(request) {
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
-    // Debug: Check all bookings for coachId
+    // Debug: Check all bookings
     const allBookings = await db
       .collection("bookings")
       .find({ coachId })
@@ -34,12 +34,28 @@ export async function POST(request) {
       JSON.stringify(allBookings, null, 2)
     );
 
+    // Debug: Check bookings without status filter
+    const bookingsNoStatus = await db
+      .collection("bookings")
+      .find({
+        coachId,
+        startTime: {
+          $gte: new Date(startOfMonth),
+          $lte: new Date(endOfMonth),
+        },
+      })
+      .toArray();
+    console.log(
+      `Bookings (any status) for coachId ${coachId}:`,
+      JSON.stringify(bookingsNoStatus, null, 2)
+    );
+
     const bookings = await db
       .collection("bookings")
       .aggregate([
         {
           $match: {
-            coachId, // String (Firebase UID)
+            coachId,
             startTime: {
               $gte: new Date(startOfMonth),
               $lte: new Date(endOfMonth),

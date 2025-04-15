@@ -74,7 +74,7 @@ export async function POST(request) {
             _id: new ObjectId(),
             bookingId: new ObjectId(bookingId),
             userId,
-            amount: paymentIntent.amount / bookingIds.length, // Split amount
+            amount: paymentIntent.amount / bookingIds.length,
             currency: paymentIntent.currency,
             status: "completed",
             stripePaymentId: paymentIntent.id,
