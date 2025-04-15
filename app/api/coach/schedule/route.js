@@ -24,7 +24,7 @@ export async function POST(request) {
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
-    // Debug: Check all bookings
+    // Debug: Check all bookings for coachId
     const allBookings = await db
       .collection("bookings")
       .find({ coachId })

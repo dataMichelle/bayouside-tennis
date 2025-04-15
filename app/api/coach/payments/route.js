@@ -19,10 +19,7 @@ export async function POST(request) {
       .collection("bookings")
       .find({ coachId })
       .toArray();
-    console.log(
-      `Bookings found for coachId ${coachId}:`,
-      JSON.stringify(bookings, null, 2)
-    );
+    console.log(`Bookings found for coachId ${coachId}:`, JSON.stringify(bookings, null, 2));
 
     if (bookings.length === 0) {
       console.log(`No bookings found for coachId: ${coachId}`);
@@ -77,19 +74,9 @@ export async function POST(request) {
                 if: "$booking.startTime",
                 then: {
                   $concat: [
-                    {
-                      $dateToString: {
-                        format: "%Y-%m-%d %H:%M",
-                        date: "$booking.startTime",
-                      },
-                    },
+                    { $dateToString: { format: "%Y-%m-%d %H:%M", date: "$booking.startTime" } },
                     " - ",
-                    {
-                      $dateToString: {
-                        format: "%H:%M",
-                        date: "$booking.endTime",
-                      },
-                    },
+                    { $dateToString: { format: "%H:%M", date: "$booking.endTime" } },
                   ],
                 },
                 else: "N/A",
@@ -100,16 +87,10 @@ export async function POST(request) {
       ])
       .toArray();
 
-    console.log(
-      `Payments found for coachId ${coachId}:`,
-      JSON.stringify(payments, null, 2)
-    );
+    console.log(`Payments found for coachId ${coachId}:`, JSON.stringify(payments, null, 2));
     return NextResponse.json(payments, { status: 200 });
   } catch (error) {
     console.error(`Error fetching payments for coachId:`, error);
-    return NextResponse.json(
-      { error: "Failed to fetch payments" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch payments" }, { status: 500 });
   }
 }
