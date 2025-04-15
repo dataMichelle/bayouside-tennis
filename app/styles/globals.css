@@ -80,6 +80,7 @@ body.login::after {
 
 h1 {
   color: var(--color-taupe-200);
+  margin-top: 5rem;
 }
 
 @keyframes jiggle {

@@ -1,32 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { useUser } from "@/context/UserContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { role, loading } = useUser();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const storedRole = localStorage.getItem("userRole");
-        setRole(storedRole);
-      } else {
-        setRole(null);
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) {
-    return <div className="p-4">Loading...</div>;
-  }
+  if (loading) return <div className="p-4">Loading...</div>;
 
   const sidebarLinks = {
     coach: [
@@ -43,6 +25,7 @@ export default function Sidebar() {
   };
 
   const links = sidebarLinks[role] || sidebarLinks.owner;
+
   const sidebarTitle =
     {
       player: "Player Menu",

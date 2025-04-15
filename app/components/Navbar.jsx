@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useUser } from "@/context/UserContext"; // Import the context
 
 const navLinks = [
   { path: "/", label: "Home", public: true },
@@ -34,10 +35,8 @@ const navLinks = [
 ];
 
 export default function Navbar() {
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { role, user, loading } = useUser(); // Get user from context
 
   useEffect(() => {
     console.log("Navbar useEffect - Starting...");

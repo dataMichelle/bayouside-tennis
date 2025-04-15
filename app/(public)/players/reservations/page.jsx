@@ -160,11 +160,11 @@ function ReservationsContent() {
     return <div className="text-center p-6 text-red-500">Error: {error}</div>;
 
   return (
-    <div className="min-h-screen p-6 bg-gray-100">
+    <main className="p-6 ">
       <h1 className="text-3xl font-bold text-primary-700 mb-6 text-center">
         My Reservations
       </h1>
-      <div className="bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto">
+      <div className="bg-swamp-200 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
         <h2 className="text-xl font-semibold text-primary-600 mb-4">
           Your Bookings
         </h2>
@@ -242,7 +242,7 @@ function ReservationsContent() {
           <p className="text-gray-600">No reservations found.</p>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 
