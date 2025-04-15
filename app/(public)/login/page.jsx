@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import PageContainer from "@/components/PageContainer";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -109,62 +110,59 @@ export default function Login() {
   };
 
   return (
-    <main className="p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">Log In</h1>
-      <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
-            >
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)} // Fixed: setPassword instead of setEmail
-              required
-              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="••••••••"
-            />
-          </div>
-          {error && <p className="text-red-500 text-center">{error}</p>}
-          <button
-            type="submit"
-            className="w-full px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition-colors shadow-md"
+    <PageContainer title="Log In">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
           >
-            Sign In
-          </button>
-        </form>
-        <p className="mt-4 text-center text-neutrals-600 dark:text-neutrals-300">
-          Don’t have an account?{" "}
-          <Link
-            href="/signup"
-            className="text-primary-700 dark:text-primary-300 hover:underline"
+            Email Address
+          </label>
+          <input
+            type="email"
+            id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="you@example.com"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
           >
-            Sign Up
-          </Link>
-        </p>
-      </div>
-    </main>
+            Password
+          </label>
+          <input
+            type="password"
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)} // Fixed: setPassword instead of setEmail
+            required
+            className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="••••••••"
+          />
+        </div>
+        {error && <p className="text-red-500 text-center">{error}</p>}
+        <button
+          type="submit"
+          className="w-full px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition-colors shadow-md"
+        >
+          Sign In
+        </button>
+      </form>
+      <p className="mt-4 text-center text-neutrals-600 dark:text-neutrals-300">
+        Don’t have an account?{" "}
+        <Link
+          href="/signup"
+          className="text-primary-700 dark:text-primary-300 hover:underline"
+        >
+          Sign Up
+        </Link>
+      </p>
+    </PageContainer>
   );
 }

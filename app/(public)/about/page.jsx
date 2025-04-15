@@ -1,14 +1,11 @@
 "use client";
 
+import PageContainer from "@/components/PageContainer";
 import { FaMapMarkerAlt, FaPhoneAlt, FaInfoCircle } from "react-icons/fa";
 
 export default function About() {
   return (
-    <main className="p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        About Bayouside Tennis
-      </h1>
-
+    <PageContainer title="About Bayouside Tennis">
       <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto ">
         {/* Welcome Text */}
         <div className="text-center mb-6">
@@ -67,6 +64,6 @@ export default function About() {
           a tennis twist!
         </div>
       </div>
-    </main>
+    </PageContainer>
   );
 }

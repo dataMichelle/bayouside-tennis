@@ -1,8 +1,14 @@
 // app/lib/firebase.js
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // Add Firestore
+import {
+  getAuth,
+  GoogleAuthProvider,
+  setPersistence,
+  browserLocalPersistence,
+} from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
+// ✅ Your config stays the same
 const firebaseConfig = {
   apiKey: "AIzaSyBWHQ8n86moQn1yfOfURUvif0RUMMsCMkw",
   authDomain: "bayousidetennis.firebaseapp.com",
@@ -13,8 +19,19 @@ const firebaseConfig = {
   measurementId: "G-W2J30P3B1E",
 };
 
-// Initialize Firebase
+// ✅ Initialize Firebase app
 const app = initializeApp(firebaseConfig);
+
+// ✅ Export auth and set persistence (AFTER defining it)
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log("Firebase auth persistence set to local");
+  })
+  .catch((err) => {
+    console.error("Failed to set Firebase auth persistence:", err);
+  });
+
+// ✅ Export other utilities
 export const googleProvider = new GoogleAuthProvider();
-export const db = getFirestore(app); // Export Firestore instance
+export const db = getFirestore(app);
