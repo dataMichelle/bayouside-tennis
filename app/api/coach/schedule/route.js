@@ -44,28 +44,15 @@ export async function POST(request) {
       JSON.stringify(allBookings, null, 2)
     );
 
-    // Handle inconsistent startTime formats
     const bookings = await db
       .collection("bookings")
       .aggregate([
         {
-          // Convert startTime to ISODate if string
-          $addFields: {
-            startTimeISO: {
-              $cond: {
-                if: { $eq: [{ $type: "$startTime" }, "string"] },
-                then: { $toDate: "$startTime" },
-                else: "$startTime",
-              },
-            },
-          },
-        },
-        {
           $match: {
             coachId,
-            startTimeISO: {
-              $gte: startDate,
-              $lte: endDate,
+            startTime: {
+              $gte: startDate.toISOString(),
+              $lte: endDate.toISOString(),
             },
             status: "confirmed",
           },
@@ -73,8 +60,14 @@ export async function POST(request) {
         {
           $lookup: {
             from: "users",
-            let: { playerId: { $ifNull: ["$playerId", "$userId"] } },
-            pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$playerId"] } } }],
+            let: { playerId: "$playerId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", { $toObjectId: "$$playerId" }] },
+                },
+              },
+            ],
             as: "user",
           },
         },

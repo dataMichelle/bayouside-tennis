@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import clientPromise from "../../../utils/mongodb";
+import clientPromise from "@/utils/mongodb"; // Update path if needed
 import { ObjectId } from "mongodb";
 
 export async function POST(request) {
   try {
     const { bookingId } = await request.json();
+
     if (!bookingId) {
       return NextResponse.json(
         { error: "Booking ID is required" },
@@ -19,28 +20,34 @@ export async function POST(request) {
       .collection("bookings")
       .aggregate([
         {
-          $match: {
-            _id: new ObjectId(bookingId),
-          },
+          $match: { _id: new ObjectId(bookingId) },
         },
         {
           $lookup: {
             from: "users",
-            localField: "playerId",
-            foreignField: "_id",
+            let: { playerId: "$playerId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$_id", { $toObjectId: "$$playerId" }],
+                  },
+                },
+              },
+            ],
             as: "user",
           },
         },
         { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
         {
           $project: {
-            _id: "$_id",
+            _id: 1,
             playerName: { $ifNull: ["$user.name", "Unknown"] },
-            startTime: "$startTime",
-            endTime: "$endTime",
-            status: "$status",
-            ballMachine: "$ballMachine",
-            totalCost: "$totalCost",
+            startTime: 1,
+            endTime: 1,
+            status: 1,
+            ballMachine: 1,
+            totalCost: 1,
           },
         },
       ])

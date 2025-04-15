@@ -77,8 +77,9 @@ function ReservationsContent() {
   };
 
   const calculateCostBreakdown = (booking) => {
-    const coach = coaches.find((c) => c._id === booking.coachId);
-    const coachRate = coach && coach.rate ? parseFloat(coach.rate) : 0;
+    // Inside calculateCostBreakdown
+    const coach = coaches.find((c) => c.userId === booking.coachId); // ✅ FIXED
+    const coachRate = coach && coach.rate ? parseFloat(coach.rate) : 30; // Default rate if missing
     const courtCost = settings.courtRentalCost || 20;
     const ballMachineCost = booking.ballMachine
       ? settings.ballMachineCost || 40
@@ -90,8 +91,7 @@ function ReservationsContent() {
       coachFee: coachRate * hours,
       courtRental: courtCost * hours,
       ballMachine: ballMachineCost * hours,
-      total:
-        booking.totalCost || (coachRate + courtCost + ballMachineCost) * hours,
+      total: (coachRate + courtCost + ballMachineCost) * hours, // ✅ always calculated fresh
     };
   };
 
@@ -171,7 +171,8 @@ function ReservationsContent() {
         {bookings.length > 0 ? (
           <ul className="space-y-4">
             {bookings.map((booking) => {
-              const coach = coaches.find((c) => c._id === booking.coachId);
+              const coach = coaches.find((c) => c.userId === booking.coachId);
+
               const costBreakdown = calculateCostBreakdown(booking);
               console.log(
                 "Booking coachId:",
