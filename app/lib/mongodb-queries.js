@@ -20,8 +20,9 @@ export async function getPaymentsForCoach(coachId) {
       return [];
     }
 
-    const bookingIds = bookings.map((booking) => new ObjectId(booking._id));
-
+    const bookingIds = bookings.map((booking) =>
+      booking._id instanceof ObjectId ? booking._id : new ObjectId(booking._id)
+    );
     const payments = await db
       .collection("payments")
       .aggregate([

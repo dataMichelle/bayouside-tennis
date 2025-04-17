@@ -1,5 +1,3 @@
-// app/dashboard/owner/payments/page.jsx
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -27,7 +25,7 @@ export default function OwnerPaymentsPage() {
     fetchPayments();
   }, []);
 
-  const formatUSD = (amount) => `$${(amount / 100).toFixed(2)}`;
+  const formatUSD = (amount) => `$${parseFloat(amount).toFixed(2)}`;
 
   if (loading)
     return <div className="p-6 text-gray-600">Loading payments...</div>;
