@@ -1,30 +1,33 @@
 // utils/navLinks.js
 export const getNavLinksForRole = (role, isLoggedIn) => {
   const baseLinks = [
-    { path: "/", label: "Home", public: true },
-    { path: "/about", label: "About Us", public: true },
-    { path: "/signup", label: "Sign Up", public: true },
+    { path: "/", label: "Home" },
+    { path: "/about", label: "About Us" },
+    { path: "/coaches", label: "Coaches" },
+    { path: "/players/info", label: "Player Info" },
+    { path: "/booking", label: "Book Court" },
   ];
 
-  const roleLinks = {
-    player: [
-      { path: "/coaches", label: "Coaches" },
-      { path: "/players/info", label: "Player Info" },
-      { path: "/players/reservations", label: "Reservations" },
-      { path: "/booking", label: "Book Court" },
-    ],
-    coach: [{ path: "/dashboard/coach", label: "Dashboard" }],
-    owner: [{ path: "/dashboard/owner", label: "Dashboard" }],
-  };
+  let roleBasedLinks = [];
 
-  const logoutOrLogin = isLoggedIn
-    ? [{ path: "#", label: "Log Out" }]
-    : [{ path: "/login", label: "Log In" }];
+  if (isLoggedIn) {
+    if (role === "player") {
+      roleBasedLinks = [
+        { path: "/players/reservations", label: "Reservations" },
+      ];
+    } else if (role === "coach") {
+      roleBasedLinks = [{ path: "/dashboard/coach", label: "Dashboard" }];
+    } else if (role === "owner") {
+      roleBasedLinks = [{ path: "/dashboard/owner", label: "Dashboard" }];
+    }
+  }
 
-  return [
-    ...baseLinks,
-    ...(roleLinks[role] || []),
-    ...(isLoggedIn ? [] : [{ path: "/login", label: "Log In" }]),
-    ...logoutOrLogin,
-  ];
+  const authLinks = isLoggedIn
+    ? [{ path: "#", label: "Log Out", onClick: true }]
+    : [
+        { path: "/auth/login", label: "Log In" },
+        { path: "/auth/signup", label: "Sign Up" },
+      ];
+
+  return [...baseLinks, ...roleBasedLinks, ...authLinks];
 };

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/utils/mongodb"; // Update path if needed
+import clientPromise from "@/lib/mongodb"; // Update path if needed
 import { ObjectId } from "mongodb";
 
 export async function POST(request) {

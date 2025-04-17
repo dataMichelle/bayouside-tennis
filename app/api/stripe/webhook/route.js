@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import clientPromise from "../../../utils/mongodb";
+import clientPromise from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -98,17 +98,15 @@ export async function POST(request) {
       // Update booking statuses
       const updatePromises = bookingIds.map(async (bookingId) => {
         try {
-          const result = await db
-            .collection("bookings")
-            .updateOne(
-              { _id: new ObjectId(bookingId) },
-              {
-                $set: {
-                  status: "confirmed",
-                  updatedAt: new Date().toISOString(),
-                },
-              }
-            );
+          const result = await db.collection("bookings").updateOne(
+            { _id: new ObjectId(bookingId) },
+            {
+              $set: {
+                status: "confirmed",
+                updatedAt: new Date().toISOString(),
+              },
+            }
+          );
           console.log(`Booking ${bookingId} update result:`, result);
           return result;
         } catch (err) {

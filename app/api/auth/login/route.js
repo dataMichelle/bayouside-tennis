@@ -1,60 +1,55 @@
-import { MongoClient } from "mongodb";
-import { adminAuth } from "../../../lib/firebaseAdmin";
+// app/api/auth/login/route.js
+import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import { adminAuth } from "@/lib/firebaseAdmin";
 
-const mongoClient = new MongoClient(process.env.MONGODB_URI);
-
-export async function POST(req) {
+export async function POST(request) {
+  let client;
   try {
-    const { email, password } = await req.json();
+    const { email, password } = await request.json();
+    console.log("POST /api/auth/login - Called with:", { email });
 
-    await mongoClient.connect();
-    const db = mongoClient.db("bayou-side-tennis");
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Missing email or password" },
+        { status: 400 }
+      );
+    }
+
+    client = await clientPromise;
+    const db = client.db("bayou-side-tennis");
     const user = await db.collection("users").findOne({ email });
 
-    if (!user) {
-      return new Response(JSON.stringify({ error: "User not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (password) {
-      if (user.password !== password) {
-        return new Response(JSON.stringify({ error: "Invalid credentials" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      const customToken = await adminAuth.createCustomToken(
-        user._id.toString()
-      );
-      mongoClient.close();
-      return new Response(
-        JSON.stringify({ token: customToken, role: user.role }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
+    if (!user || user.password !== password) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
       );
     }
 
-    mongoClient.close();
-    return new Response(JSON.stringify({ role: user.role }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+    if (!user.firebaseUid) {
+      return NextResponse.json(
+        { error: "User configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const customToken = await adminAuth.createCustomToken(user.firebaseUid);
+
+    return NextResponse.json({
+      token: customToken,
+      role: user.role || "player",
+      _id: user._id.toString(),
     });
   } catch (error) {
-    console.error("API - Login Error:", {
-      message: error.message,
-      code: error.code,
-    });
-    return new Response(
-      JSON.stringify({ error: error.message || "Login failed" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+    console.error("POST /api/auth/login - Error:", error.message);
+    return NextResponse.json(
+      { error: "Login failed", details: error.message },
+      { status: 500 }
     );
+  } finally {
+    if (process.env.NODE_ENV === "production" && client) {
+      await client.close();
+    }
   }
 }

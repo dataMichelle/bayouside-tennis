@@ -1,44 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { useUser } from "@/context/UserContext";
+import DashboardHeader from "@/components/DashboardHeader";
 
 export default function CoachPayments() {
+  const { user, loading: userLoading } = useUser();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          console.log("Fetching payments for coachId:", user.uid);
-          const response = await fetch("/api/coach/payments", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ coachId: user.uid }),
-          });
-          if (!response.ok) {
-            throw new Error("Failed to fetch payments");
-          }
-          const coachPayments = await response.json();
-          console.log(
-            "Payments received:",
-            JSON.stringify(coachPayments, null, 2)
-          );
-          setPayments(coachPayments);
-        } catch (err) {
-          console.error("Error fetching payments:", err);
-          setError(err.message);
-        }
-      } else {
-        setError("Not authenticated");
-      }
+    if (!userLoading && user?.uid) {
+      fetchPayments(user.uid);
+    } else if (!user && !userLoading) {
+      setError("Not authenticated");
       setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    }
+  }, [user, userLoading]);
+
+  const fetchPayments = async (coachId) => {
+    try {
+      const response = await fetch("/api/coach/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coachId }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch payments");
+      }
+      const data = await response.json();
+      setPayments(data || []);
+    } catch (err) {
+      console.error("Error fetching payments:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatTimeTo12HourCDT = (time) => {
     if (!time) return "";
@@ -51,15 +50,18 @@ export default function CoachPayments() {
     });
   };
 
-  if (loading) return <div className="text-center p-6">Loading...</div>;
+  if (loading || userLoading)
+    return (
+      <div className="text-center p-6 text-gray-600">Loading payments...</div>
+    );
+
   if (error)
     return <div className="text-center p-6 text-red-500">Error: {error}</div>;
 
   return (
     <div className="min-h-screen p-6 bg-gray-100">
-      <h1 className="text-3xl font-bold text-primary-700 mb-6 text-center">
-        Coach Payments
-      </h1>
+      <DashboardHeader title="Payments" />
+
       <div className="bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto">
         <h2 className="text-xl font-semibold text-primary-600 mb-4">
           Payment History
@@ -67,7 +69,7 @@ export default function CoachPayments() {
         {payments.length > 0 ? (
           <ul className="space-y-4">
             {payments.map((payment) => (
-              <li key={payment._id.toString()} className="border-b pb-2">
+              <li key={payment._id} className="border-b pb-3">
                 <p>
                   <strong>Player:</strong> {payment.playerName}
                 </p>
@@ -90,7 +92,7 @@ export default function CoachPayments() {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-600">No payments found.</p>
+          <p className="text-gray-600 text-center">No payments found yet.</p>
         )}
       </div>
     </div>

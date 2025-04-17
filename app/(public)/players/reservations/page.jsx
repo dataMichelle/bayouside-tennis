@@ -1,15 +1,14 @@
+// app/(public)/players/reservations/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
+import { useUser } from "@/context/UserContext";
 import { usePayment, PaymentProvider } from "@/context/PaymentContext";
 import PageContainer from "@/components/PageContainer";
 import ReservationCard from "@/components/ReservationCard";
 
 function ReservationsContent() {
-  const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [settings, setSettings] = useState({
@@ -25,49 +24,77 @@ function ReservationsContent() {
     isProcessing,
   } = usePayment();
   const router = useRouter();
+  const { user, loading: userLoading } = useUser();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        try {
-          const [bookingsRes, coachesRes, settingsRes] = await Promise.all([
-            fetch(`/api/bookings?userId=${currentUser.uid}`),
-            fetch("/api/coach"),
-            fetch("/api/settings"),
-          ]);
+    if (userLoading) return;
 
-          if (!bookingsRes.ok) throw new Error("Failed to fetch bookings");
-          if (!coachesRes.ok) throw new Error("Failed to fetch coaches");
-          if (!settingsRes.ok) throw new Error("Failed to fetch settings");
-
-          const [bookingsData, coachesData, settingsData] = await Promise.all([
-            bookingsRes.json(),
-            coachesRes.json(),
-            settingsRes.json(),
-          ]);
-
-          setBookings(
-            bookingsData.sort(
-              (a, b) => new Date(a.startTime) - new Date(b.startTime)
-            )
-          );
-          setCoaches(coachesData);
-          setSettings(settingsData);
-        } catch (err) {
-          setError(err.message);
-        }
-      } else {
-        setError("Not authenticated");
-        router.push("/login");
-      }
+    if (!user) {
+      setError("Not authenticated");
+      router.push("/login");
       setLoading(false);
+      return;
+    }
+
+    console.log("Reservations - Auth user:", {
+      firebaseUid: user.uid,
+      email: user.email,
     });
-    return () => unsubscribe();
-  }, [router]);
+
+    const fetchData = async () => {
+      try {
+        // Fetch MongoDB _id
+        const userRes = await fetch("/api/users", {
+          headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        });
+        if (!userRes.ok) {
+          console.error(
+            "Reservations - Failed to fetch user:",
+            await userRes.text()
+          );
+          throw new Error("Failed to fetch user data");
+        }
+        const userData = await userRes.json();
+        const mongoUserId = userData._id;
+        console.log("Reservations - MongoDB user _id:", mongoUserId);
+
+        const [bookingsRes, coachesRes, settingsRes] = await Promise.all([
+          fetch(`/api/bookings?userId=${mongoUserId}`),
+          fetch("/api/coach"),
+          fetch("/api/settings"),
+        ]);
+
+        if (!bookingsRes.ok) throw new Error("Failed to fetch bookings");
+        if (!coachesRes.ok) throw new Error("Failed to fetch coaches");
+        if (!settingsRes.ok) throw new Error("Failed to fetch settings");
+
+        const [bookingsData, coachesData, settingsData] = await Promise.all([
+          bookingsRes.json(),
+          coachesRes.json(),
+          settingsRes.json(),
+        ]);
+
+        setBookings(
+          bookingsData.sort(
+            (a, b) => new Date(a.startTime) - new Date(b.startTime)
+          )
+        );
+        setCoaches(coachesData);
+        setSettings(settingsData);
+      } catch (err) {
+        console.error("Reservations - Error:", err.message);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user, userLoading, router]);
 
   const handlePayNow = async (booking) => {
     try {
+      console.log("PayNow - Booking:", booking._id, "Firebase UID:", user.uid);
       const paymentIntent = await initiatePayment(
         [booking._id],
         booking.totalCost,
@@ -92,14 +119,21 @@ function ReservationsContent() {
       });
 
       if (!paymentRes.ok) {
-        console.error("Payment failed:", await paymentRes.text());
+        console.error("PayNow - Payment failed:", await paymentRes.text());
         return;
       }
 
       await confirmBookings([booking._id]);
 
+      const userRes = await fetch("/api/users", {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+      });
+      if (!userRes.ok) throw new Error("Failed to fetch user data");
+      const userData = await userRes.json();
+      const mongoUserId = userData._id;
+
       const updatedBookings = await fetch(
-        `/api/bookings?userId=${user.uid}`
+        `/api/bookings?userId=${mongoUserId}`
       ).then((res) => res.json());
       setBookings(
         updatedBookings.sort(
@@ -107,12 +141,12 @@ function ReservationsContent() {
         )
       );
     } catch (err) {
-      console.error("Payment error:", err);
+      console.error("PayNow - Error:", err);
       setError(paymentError || err.message);
     }
   };
 
-  if (loading)
+  if (loading || userLoading)
     return (
       <PageContainer title="My Reservations">
         <p>Loading...</p>

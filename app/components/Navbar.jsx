@@ -1,99 +1,61 @@
 "use client";
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useUser } from "@/context/UserContext";
-
-const navLinks = [
-  { path: "/", label: "Home", public: true },
-  { path: "/coaches", label: "Coaches", public: true, roles: ["player"] },
-  {
-    path: "/players/info",
-    label: "Player Info",
-    public: true,
-    roles: ["player"],
-  },
-  {
-    path: "/players/reservations",
-    label: "Reservations",
-    public: false,
-    roles: ["player"],
-  },
-  {
-    path: "/dashboard",
-    label: "Dashboard",
-    public: false,
-    roles: ["coach", "owner"],
-  },
-  { path: "/booking", label: "Book Court", public: true, roles: ["player"] },
-  { path: "/about", label: "About Us", public: true },
-  { path: "/signup", label: "Sign Up", public: true },
-];
+import { getNavLinksForRole } from "@/utils/navLinks";
 
 export default function Navbar() {
   const router = useRouter();
-  const { role, user, loading } = useUser();
+  const { user, role, loading } = useUser();
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return null;
 
   const isLoggedIn = !!user;
+  const links = getNavLinksForRole(role, isLoggedIn);
 
-  const linksWithAuth = [
-    ...navLinks.filter((link) => link.label !== "Sign Up" || !isLoggedIn),
-    ...(isLoggedIn
-      ? [
-          {
-            path: "#",
-            label: "Log Out",
-            public: false,
-            onClick: () => {
-              localStorage.removeItem("userRole");
-              signOut(auth)
-                .then(() => {
-                  router.push("/");
-                })
-                .catch((error) => {
-                  console.error("Logout error:", error);
-                });
-            },
-          },
-        ]
-      : [{ path: "/login", label: "Log In", public: true }]),
-  ];
+  const handleLogout = () => {
+    localStorage.removeItem("userRole");
+    signOut(auth)
+      .then(() => {
+        console.log("Navbar - Logout successful");
+        router.push("/");
+      })
+      .catch((error) => {
+        console.error("Logout error:", error);
+      });
+  };
 
   return (
-    <header className="z-100 relative">
+    <header className="relative z-[100]">
       <motion.div
-        className="fixed top-4 left-1/2 -translate-x-1/2 h-[3.5rem] max-w-3xl rounded-full border border-swamp-400 border-opacity-40 bg-taupe-200 bg-opacity-80 shadow-[0px_8px_16px_rgba(34,85,34,1)] backdrop-blur-[0.5rem] flex items-center justify-center px-6 font-nunito animate-jiggle"
+        className="fixed top-4 left-1/2 -translate-x-1/2 h-[3.5rem] max-w-4xl rounded-full border border-swamp-400 border-opacity-40 bg-taupe-200 bg-opacity-80 shadow-[0px_8px_16px_rgba(34,85,34,1)] backdrop-blur-[0.5rem] flex items-center justify-center px-6 font-nunito animate-jiggle"
         initial={{ opacity: 0, y: -100 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <nav className="flex items-center space-x-6">
-          {linksWithAuth.map((link) => {
-            const shouldShow =
-              (link.public && (!link.roles || !isLoggedIn)) ||
-              (isLoggedIn && (!link.roles || link.roles.includes(role)));
-
-            const linkPath =
-              link.label === "Dashboard" && isLoggedIn && role
-                ? `/dashboard/${role}`
-                : link.path;
-
-            return shouldShow ? (
+        <nav className="flex flex-row flex-nowrap items-center space-x-4">
+          {links.map((link) =>
+            link.label === "Log Out" ? (
+              <button
+                key={link.label}
+                onClick={handleLogout}
+                className="text-black text-sm font-nunito hover:text-orange-700 whitespace-nowrap"
+              >
+                {link.label}
+              </button>
+            ) : (
               <Link
                 key={link.label}
-                href={linkPath}
-                onClick={link.onClick || null}
-                className="text-black text-md font-nunito hover:text-orange-700"
+                href={link.path}
+                className="text-black text-sm font-nunito hover:text-orange-700 whitespace-nowrap"
               >
                 {link.label}
               </Link>
-            ) : null;
-          })}
+            )
+          )}
         </nav>
       </motion.div>
     </header>

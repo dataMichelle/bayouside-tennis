@@ -1,10 +1,12 @@
+// app/api/coach/schedule/route.js
 import { NextResponse } from "next/server";
-import clientPromise from "../../../utils/mongodb";
+import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function POST(request) {
   try {
     const { coachId, startOfMonth, endOfMonth } = await request.json();
+
     if (!coachId || !startOfMonth || !endOfMonth) {
       console.error("Missing required fields:", {
         coachId,
@@ -17,85 +19,62 @@ export async function POST(request) {
       );
     }
 
-    console.log(
-      `Fetching bookings for coachId: ${coachId}, range: ${startOfMonth} to ${endOfMonth}`
-    );
-
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
-    // Normalize dates to UTC midnight
     const startDate = new Date(startOfMonth);
-    startDate.setUTCHours(0, 0, 0, 0);
     const endDate = new Date(endOfMonth);
-    endDate.setUTCHours(23, 59, 59, 999);
-
-    console.log(
-      `Normalized range: ${startDate.toISOString()} to ${endDate.toISOString()}`
-    );
-
-    // Debug: Check all bookings for coachId
-    const allBookings = await db
-      .collection("bookings")
-      .find({ coachId })
-      .toArray();
-    console.log(
-      `All bookings for coachId ${coachId}:`,
-      JSON.stringify(allBookings, null, 2)
-    );
 
     const bookings = await db
       .collection("bookings")
       .aggregate([
         {
           $match: {
-            coachId,
-            startTime: {
-              $gte: startDate.toISOString(),
-              $lte: endDate.toISOString(),
-            },
+            coachId, // Still a string
+            startTime: { $gte: startDate, $lte: endDate },
             status: "confirmed",
           },
         },
         {
           $lookup: {
             from: "users",
-            let: { playerId: "$playerId" },
+            let: { playerIdStr: "$playerId" },
             pipeline: [
               {
                 $match: {
-                  $expr: { $eq: ["$_id", { $toObjectId: "$$playerId" }] },
+                  $expr: {
+                    $eq: ["$_id", { $toObjectId: "$$playerIdStr" }],
+                  },
                 },
               },
             ],
             as: "user",
           },
         },
-        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $unwind: { path: "$user", preserveNullAndEmptyArrays: true },
+        },
         {
           $project: {
-            _id: "$_id",
+            _id: 1,
             playerName: { $ifNull: ["$user.name", "Unknown"] },
-            startTime: "$startTime",
-            endTime: "$endTime",
-            status: "$status",
-            ballMachine: "$ballMachine",
-            totalCost: "$totalCost",
-            coachId: "$coachId",
+            startTime: 1,
+            endTime: 1,
+            status: 1,
+            ballMachine: 1,
+            totalCost: 1,
+            coachId: 1,
           },
         },
       ])
       .toArray();
 
-    console.log(
-      `Confirmed bookings for coachId ${coachId} from ${startOfMonth} to ${endOfMonth}:`,
-      JSON.stringify(bookings, null, 2)
-    );
+    console.log(`Returning ${bookings.length} bookings for coachId ${coachId}`);
     return NextResponse.json({ bookings }, { status: 200 });
   } catch (error) {
-    console.error("Error fetching schedule:", error);
+    console.error("Error in /api/coach/schedule:", error);
     return NextResponse.json(
-      { error: "Failed to fetch schedule" },
+      { error: "Failed to fetch schedule", details: error.message },
       { status: 500 }
     );
   }

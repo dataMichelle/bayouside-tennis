@@ -19,17 +19,29 @@ export const UserProvider = ({ children }) => {
       if (firebaseUser) {
         try {
           const token = await firebaseUser.getIdToken();
+          console.log(
+            "UserContext - Fetching role for UID:",
+            firebaseUser.uid,
+            "Email:",
+            firebaseUser.email
+          );
           const res = await fetch("/api/users", {
             headers: { Authorization: `Bearer ${token}` },
           });
+          if (!res.ok) {
+            console.error("UserContext - API response:", await res.text());
+            throw new Error(`API error: ${res.status}`);
+          }
           const data = await res.json();
           const fetchedRole = data.role || "player";
+          console.log("UserContext - Role fetched:", fetchedRole);
 
           setRole(fetchedRole);
           localStorage.setItem("userRole", fetchedRole);
         } catch (err) {
-          console.error("UserContext fetch role failed", err);
+          console.error("UserContext - Fetch role failed:", err.message);
           setRole("player");
+          localStorage.setItem("userRole", "player");
         }
       } else {
         setRole(null);

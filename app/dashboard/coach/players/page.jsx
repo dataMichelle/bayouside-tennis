@@ -1,27 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { useUser } from "@/context/UserContext";
+import DashboardHeader from "@/components/DashboardHeader";
 
 export default function CoachPlayers() {
+  const { user, loading: userLoading } = useUser();
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const coachId = user.uid;
-        console.log("CoachPlayers - Coach ID:", coachId);
-        await fetchPlayers(coachId);
-      } else {
-        setError("Not authenticated");
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    if (!userLoading && user?.uid) {
+      fetchPlayers(user.uid);
+    } else if (!user && !userLoading) {
+      setError("Not authenticated");
+      setLoading(false);
+    }
+  }, [user, userLoading]);
 
   const fetchPlayers = async (coachId) => {
     try {
@@ -31,12 +27,9 @@ export default function CoachPlayers() {
         body: JSON.stringify({ coachId }),
       });
       const data = await response.json();
-      if (response.ok) {
-        console.log("Players fetched:", JSON.stringify(data.players, null, 2));
-        setPlayers(data.players);
-      } else {
+      if (!response.ok)
         throw new Error(data.error || "Failed to fetch players");
-      }
+      setPlayers(data.players || []);
     } catch (err) {
       console.error("Fetch error:", err.message);
       setError(err.message);
@@ -45,19 +38,24 @@ export default function CoachPlayers() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-4">Loading...</div>;
-  }
+  if (loading || userLoading)
+    return (
+      <div className="text-center py-6 text-gray-600">Loading players...</div>
+    );
 
-  if (error) {
-    return <div className="text-red-600 text-center py-4">Error: {error}</div>;
-  }
+  if (error)
+    return <div className="text-center py-6 text-red-600">Error: {error}</div>;
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">My Players</h1>
+      <DashboardHeader title="My Students" />
       {players.length === 0 ? (
-        <p className="text-gray-600 text-center">No players found.</p>
+        <div className="text-center text-gray-500">
+          <p>No players found yet.</p>
+          <p className="text-sm mt-2">
+            Players will appear here after your first booking.
+          </p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse bg-white shadow-md rounded-lg">

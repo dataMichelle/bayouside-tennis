@@ -1,3 +1,4 @@
+// app/api/payments/route.js
 import { NextResponse } from "next/server";
 import clientPromise from "../../../utils/mongodb";
 import { ObjectId } from "mongodb";
@@ -23,6 +24,13 @@ export async function POST(request) {
     const { bookingId, userId, amount, currency, stripePaymentId } =
       await request.json();
 
+    console.log("Payment POST received:", {
+      bookingId,
+      userId,
+      amount,
+      currency,
+    });
+
     if (!bookingId || !userId || !amount || !currency) {
       console.error("Missing required fields:", {
         bookingId,
@@ -38,6 +46,13 @@ export async function POST(request) {
 
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
+
+    // Validate userId exists
+    const user = await db.collection("users").findOne({ firebaseUid: userId });
+    if (!user) {
+      console.error("User not found for firebaseUid:", userId);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const newPayment = {
       _id: new ObjectId(),

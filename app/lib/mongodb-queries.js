@@ -1,30 +1,26 @@
+// app/lib/mongodb-queries.js
 import clientPromise from "./mongodb";
 import { ObjectId } from "mongodb";
 
+// --------------------
+// getPaymentsForCoach
+// --------------------
 export async function getPaymentsForCoach(coachId) {
   try {
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
-    console.log(`Querying payments for coachId: ${coachId}`);
-
     const bookings = await db
       .collection("bookings")
-      .find({ coachId }) // coachId is string (Firebase UID)
+      .find({ coachId })
       .toArray();
-    console.log(
-      `Bookings found for coachId ${coachId}:`,
-      bookings.length,
-      bookings
-    );
 
-    if (bookings.length === 0) {
-      console.log(`No bookings found for coachId: ${coachId}`);
+    if (!bookings.length) {
+      console.warn(`No bookings found for coachId: ${coachId}`);
       return [];
     }
 
     const bookingIds = bookings.map((booking) => new ObjectId(booking._id));
-    console.log(`Booking IDs:`, bookingIds);
 
     const payments = await db
       .collection("payments")
@@ -47,14 +43,14 @@ export async function getPaymentsForCoach(coachId) {
           $lookup: {
             from: "users",
             localField: "userId",
-            foreignField: "_id",
+            foreignField: "firebaseUid",
             as: "user",
           },
         },
         { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
         {
           $project: {
-            _id: "$_id",
+            _id: 1,
             playerName: {
               $cond: {
                 if: { $eq: ["$booking.ballMachine", true] },
@@ -62,10 +58,10 @@ export async function getPaymentsForCoach(coachId) {
                 else: { $ifNull: ["$user.name", "Unknown"] },
               },
             },
-            amount: { $divide: ["$amount", 100] }, // Convert cents to dollars
-            currency: "$currency",
-            status: "$status",
-            createdAt: "$createdAt",
+            amount: { $divide: ["$amount", 100] },
+            currency: 1,
+            status: 1,
+            createdAt: 1,
             bookingTime: {
               $cond: {
                 if: "$booking.startTime",
@@ -94,13 +90,51 @@ export async function getPaymentsForCoach(coachId) {
       ])
       .toArray();
 
-    console.log(`Payments found for coachId ${coachId}:`, payments);
+    console.log(
+      `✅ Payments retrieved for coachId ${coachId}:`,
+      payments.length
+    );
     return payments;
   } catch (error) {
-    console.error(
-      `Error in getPaymentsForCoach for coachId ${coachId}:`,
-      error
-    );
+    console.error(`❌ getPaymentsForCoach error (coachId: ${coachId}):`, error);
+    throw error;
+  }
+}
+
+// --------------------
+// getPlayersForCoach
+// --------------------
+export async function getPlayersForCoach(coachId) {
+  try {
+    const client = await clientPromise;
+    const db = client.db("bayou-side-tennis");
+
+    const bookings = await db
+      .collection("bookings")
+      .find({ coachId })
+      .toArray();
+
+    console.log(`📘 Bookings found for coachId ${coachId}:`, bookings.length);
+
+    const playerIds = [
+      ...new Set(bookings.map((b) => b.playerId).filter(Boolean)),
+    ];
+
+    const objectIds = playerIds
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id));
+
+    console.log("🎯 Converted ObjectIds for players:", objectIds);
+
+    const players = await db
+      .collection("users")
+      .find({ _id: { $in: objectIds } })
+      .project({ name: 1, email: 1, phone: 1 })
+      .toArray();
+
+    return players;
+  } catch (error) {
+    console.error(`❌ getPlayersForCoach error (coachId: ${coachId}):`, error);
     throw error;
   }
 }

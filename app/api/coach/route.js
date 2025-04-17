@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "../../utils/mongodb";
+import clientPromise from "../../lib/mongodb";
 
 export async function GET() {
   try {
@@ -19,7 +19,6 @@ export async function GET() {
       bio: coach.bio || "",
       availability: Array.isArray(coach.availability) ? coach.availability : [],
       rate: coach.rate || "0",
-      rating: coach.rating || 0,
       userId: coach.userId || null,
     }));
 
