@@ -13,12 +13,10 @@ export default function ReservationsPage() {
   const { verifyPayments, initiatePayment } = usePayment();
   const { firebaseUser, userData, loading } = useUser();
   const [paymentStatus, setPaymentStatus] = useState(null);
-  const [retries, setRetries] = useState(0);
   const [bookings, setBookings] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessingId, setIsProcessingId] = useState(null);
   const [paymentError, setPaymentError] = useState(null);
   const [fetchError, setFetchError] = useState(null);
-  const maxRetries = 5;
 
   const fetchData = useCallback(async () => {
     if (!userData?.id) {
@@ -30,13 +28,11 @@ export default function ReservationsPage() {
         `/api/player/reservations?playerId=${userData.id}`
       );
       if (!res.ok) throw new Error(await res.text());
-
       const data = await res.json();
       const bookingsArray = Array.isArray(data.bookings) ? data.bookings : [];
       const validBookings = bookingsArray.filter(
         (b) => b.startTime && b.endTime && b._id
       );
-
       setBookings(validBookings);
       setFetchError(null);
     } catch (err) {
@@ -44,6 +40,24 @@ export default function ReservationsPage() {
       setFetchError(err.message);
     }
   }, [userData]);
+
+  const verifyUpdatedStatuses = useCallback(async () => {
+    const pending = bookings.filter((b) => b.status === "pending");
+    if (pending.length === 0) return;
+
+    const bookingIds = pending.map((b) => b._id?.toString()).filter(Boolean);
+    if (bookingIds.length === 0) return;
+
+    const { missingPayments, allVerified } = await verifyPayments(bookingIds);
+    if (allVerified) {
+      console.log("All pending bookings now confirmed");
+      setBookings((prev) =>
+        prev.map((b) =>
+          bookingIds.includes(b._id) ? { ...b, status: "confirmed" } : b
+        )
+      );
+    }
+  }, [bookings, verifyPayments]);
 
   useEffect(() => {
     if (loading || !firebaseUser) return;
@@ -54,8 +68,15 @@ export default function ReservationsPage() {
     fetchData();
   }, [loading, firebaseUser, router, fetchData]);
 
+  useEffect(() => {
+    const success = searchParams.get("success");
+    if (success === "true") {
+      verifyUpdatedStatuses();
+    }
+  }, [searchParams, verifyUpdatedStatuses]);
+
   const handlePayNow = async (booking) => {
-    setIsProcessing(true);
+    setIsProcessingId(booking._id);
     setPaymentError(null);
     try {
       if (!firebaseUser) throw new Error("User not authenticated");
@@ -68,7 +89,7 @@ export default function ReservationsPage() {
     } catch (err) {
       setPaymentError("Failed to initiate payment");
     } finally {
-      setIsProcessing(false);
+      setIsProcessingId(null);
     }
   };
 
@@ -78,19 +99,6 @@ export default function ReservationsPage() {
       {!loading && !firebaseUser && <p>Please log in to view reservations.</p>}
       {!loading && firebaseUser && (
         <>
-          {paymentStatus === "success" && (
-            <p className="text-green-600">Payment confirmed!</p>
-          )}
-          {paymentStatus === "pending" && (
-            <p className="text-yellow-600">
-              Waiting for payment confirmation...
-            </p>
-          )}
-          {paymentStatus === "failed" && (
-            <p className="text-red-600">
-              Payment verification failed. Please contact support.
-            </p>
-          )}
           {fetchError && <p className="text-red-600">Error: {fetchError}</p>}
           {bookings.length === 0 && !fetchError && (
             <p>No reservations found.</p>
@@ -101,9 +109,9 @@ export default function ReservationsPage() {
                 key={booking._id}
                 booking={booking}
                 coach={booking.coach || null}
-                settings={{}} // Settings are optional or can be fetched separately
+                settings={{}}
                 onPayNow={handlePayNow}
-                isProcessing={isProcessing}
+                isProcessing={isProcessingId === booking._id}
                 paymentError={paymentError}
               />
             ))}

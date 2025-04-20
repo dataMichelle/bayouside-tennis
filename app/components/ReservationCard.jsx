@@ -1,3 +1,5 @@
+"use client";
+
 import { calculateCostBreakdown } from "@/utils/cost";
 import { formatTimeTo12HourCDT } from "@/utils/time";
 
@@ -6,7 +8,7 @@ export default function ReservationCard({
   coach,
   settings,
   onPayNow,
-  isProcessing,
+  isProcessingMap,
   paymentError,
 }) {
   const { coachFee, courtFee, machineFee, total } = calculateCostBreakdown({
@@ -21,6 +23,8 @@ export default function ReservationCard({
     settings,
     ballMachine: booking.ballMachine || false,
   });
+
+  const isProcessing = isProcessingMap?.[booking._id];
 
   console.log("ReservationCard data:", {
     bookingId: booking._id,
