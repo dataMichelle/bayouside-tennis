@@ -1,44 +1,37 @@
-// hooks/useBookingActions.js
-
-import { usePayment } from "@/context/PaymentContext";
+// app/lib/useBookingActions.js (already correct)
+import { useEffect, useState } from "react";
+import {
+  getAllCoaches,
+  getAllBookings,
+  getSettings,
+} from "@/lib/mongodb-queries";
 
 const useBookingLogic = () => {
-  const { initiatePayment, confirmBookings } = usePayment();
+  const [coaches, setCoaches] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [settings, setSettings] = useState({});
+  const [error, setError] = useState(null);
 
-  const confirmBooking = async (bookingIds) => {
-    try {
-      await confirmBookings(bookingIds);
-      return { success: true };
-    } catch (err) {
-      console.error("Error confirming bookings:", err);
-      return { success: false, message: err.message };
-    }
-  };
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [coachesData, bookingsData, settingsData] = await Promise.all([
+          getAllCoaches(),
+          getAllBookings(),
+          getSettings(),
+        ]);
+        setCoaches(coachesData);
+        setBookings(bookingsData);
+        setSettings(settingsData);
+      } catch (err) {
+        console.error("Error loading booking data:", err);
+        setError("Failed to load data.");
+      }
+    };
+    fetchInitialData();
+  }, []);
 
-  const initiateStripeCheckout = async ({
-    bookingIds,
-    amount,
-    description,
-    userId,
-  }) => {
-    try {
-      const intent = await initiatePayment(
-        bookingIds,
-        amount,
-        description,
-        userId
-      );
-      return { success: true, intent };
-    } catch (err) {
-      console.error("Error initiating payment:", err);
-      return { success: false, message: err.message };
-    }
-  };
-
-  return {
-    confirmBooking,
-    initiateStripeCheckout,
-  };
+  return { coaches, bookings, settings, error };
 };
 
 export default useBookingLogic;

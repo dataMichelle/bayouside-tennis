@@ -6,31 +6,27 @@ export async function POST(request) {
   try {
     const { coachId } = await request.json();
     if (!coachId) {
-      console.error("Missing coachId");
       return NextResponse.json({ error: "Missing coachId" }, { status: 400 });
     }
 
-    console.log(`Querying payments for coachId: ${coachId}`);
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
-    // Debug: Check all bookings
     const bookings = await db
       .collection("bookings")
-      .find({ coachId })
+      .find({ coachId, status: "confirmed" })
       .toArray();
-    console.log(
-      `Bookings found for coachId ${coachId}:`,
-      JSON.stringify(bookings, null, 2)
-    );
 
     if (bookings.length === 0) {
-      console.log(`No bookings found for coachId: ${coachId}`);
       return NextResponse.json([], { status: 200 });
     }
 
-    const bookingIds = bookings.map((booking) => new ObjectId(booking._id));
-    console.log(`Booking IDs:`, bookingIds);
+    const bookingIds = bookings.map((booking) =>
+      booking._id instanceof ObjectId ? booking._id : new ObjectId(booking._id)
+    );
+
+    const settings = await db.collection("settings").findOne({});
+    const coachFeeSplitPercentage = settings?.coachFeeSplitPercentage ?? 50;
 
     const payments = await db
       .collection("payments")
@@ -38,6 +34,7 @@ export async function POST(request) {
         {
           $match: {
             bookingId: { $in: bookingIds },
+            status: "completed",
           },
         },
         {
@@ -65,17 +62,70 @@ export async function POST(request) {
         },
         { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
         {
+          $lookup: {
+            from: "coaches",
+            localField: "booking.coachId",
+            foreignField: "userId",
+            as: "coach",
+          },
+        },
+        { $unwind: { path: "$coach", preserveNullAndEmptyArrays: true } },
+
+        {
+          $addFields: {
+            durationHours: {
+              $cond: [
+                {
+                  $and: ["$booking.startTime", "$booking.endTime"],
+                },
+                {
+                  $divide: [
+                    {
+                      $subtract: [
+                        { $toDate: "$booking.endTime" },
+                        { $toDate: "$booking.startTime" },
+                      ],
+                    },
+                    1000 * 60 * 60,
+                  ],
+                },
+                1,
+              ],
+            },
+          },
+        },
+
+        {
           $project: {
-            _id: "$_id",
+            _id: 1,
             playerName: { $ifNull: ["$user.name", "Unknown"] },
             amount: { $divide: ["$amount", 100] },
-            currency: "$currency",
-            status: "$status",
-            createdAt: "$createdAt",
+            coachRate: "$coach.rate",
+            durationHours: 1,
+            coachFee: {
+              $round: [
+                {
+                  $divide: [
+                    {
+                      $multiply: [
+                        "$coach.rate",
+                        "$durationHours",
+                        coachFeeSplitPercentage,
+                      ],
+                    },
+                    100,
+                  ],
+                },
+                2,
+              ],
+            },
+            createdAt: 1,
+            currency: 1,
+            status: 1,
             bookingTime: {
-              $cond: {
-                if: "$booking.startTime",
-                then: {
+              $cond: [
+                "$booking.startTime",
+                {
                   $concat: [
                     {
                       $dateToString: {
@@ -92,23 +142,19 @@ export async function POST(request) {
                     },
                   ],
                 },
-                else: "N/A",
-              },
+                "N/A",
+              ],
             },
           },
         },
       ])
       .toArray();
 
-    console.log(
-      `Payments found for coachId ${coachId}:`,
-      JSON.stringify(payments, null, 2)
-    );
     return NextResponse.json(payments, { status: 200 });
   } catch (error) {
-    console.error(`Error fetching payments for coachId:`, error);
+    console.error("Error fetching coach payments:", error);
     return NextResponse.json(
-      { error: "Failed to fetch payments" },
+      { error: "Failed to fetch payments", details: error.message },
       { status: 500 }
     );
   }

@@ -29,6 +29,7 @@ export default function ReservationsPage() {
       const res = await fetch(
         `/api/player/reservations?playerId=${userData.id}`
       );
+
       if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
@@ -101,7 +102,7 @@ export default function ReservationsPage() {
                 key={booking._id}
                 booking={booking}
                 coach={booking.coach || null}
-                settings={{}} // Settings are optional or can be fetched separately
+                settings={{}} // Use default if needed or fetch settings separately
                 onPayNow={handlePayNow}
                 isProcessing={isProcessing}
                 paymentError={paymentError}

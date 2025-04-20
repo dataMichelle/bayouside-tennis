@@ -1,23 +1,24 @@
-export function calculateCostBreakdown({ booking, coach, settings }) {
-  const coachRate = coach?.rate ? parseFloat(coach.rate) : 30;
-  const courtRate = settings?.courtRentalCost || 20;
-  const ballMachineRate = booking?.ballMachine
-    ? settings?.ballMachineCost || 40
-    : 0;
-
-  const hours =
-    (new Date(booking.endTime) - new Date(booking.startTime)) /
-    (1000 * 60 * 60);
+export function calculateCostBreakdown({
+  slots,
+  coach,
+  settings,
+  ballMachine,
+}) {
+  // Default to 1 hour if slots is undefined or not an array
+  const hours = Array.isArray(slots) && slots.length > 0 ? slots.length : 1;
+  const coachRate = coach?.rate ? parseFloat(coach.rate) : 0;
+  const courtRentalCost = settings?.courtRentalCost
+    ? parseFloat(settings.courtRentalCost)
+    : 20;
+  const ballMachineCost =
+    ballMachine && settings?.ballMachineCost
+      ? parseFloat(settings.ballMachineCost)
+      : 0;
 
   const coachFee = coachRate * hours;
-  const courtRental = courtRate * hours;
-  const ballMachine = ballMachineRate * hours;
-  const total = coachFee + courtRental + ballMachine;
+  const courtFee = courtRentalCost * hours;
+  const machineFee = ballMachineCost * hours;
+  const total = coachFee + courtFee + machineFee;
 
-  return {
-    coachFee,
-    courtRental,
-    ballMachine,
-    total,
-  };
+  return { coachFee, courtFee, machineFee, total };
 }

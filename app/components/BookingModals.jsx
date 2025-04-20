@@ -1,5 +1,7 @@
 "use client";
 
+import { calculateCostBreakdown } from "@/utils/cost";
+
 export default function BookingModals({
   modalOpen,
   setModalOpen,
@@ -14,9 +16,9 @@ export default function BookingModals({
   confirmSlotSelection,
   handleBookingConfirm,
   handlePaymentConfirm,
-  calculateCostBreakdown,
   coaches,
   selectedCoach,
+  settings,
   ballMachine,
   paymentError,
   isProcessing,
@@ -31,8 +33,16 @@ export default function BookingModals({
     });
   };
 
+  const cost = calculateCostBreakdown({
+    slots: selectedSlots,
+    coach: coaches.find((c) => c._id === selectedCoach),
+    settings,
+    ballMachine,
+  });
+
   return (
     <>
+      {/* Confirmation Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
@@ -55,7 +65,7 @@ export default function BookingModals({
               {selectedSlots.map((slot, index) => (
                 <li key={index}>
                   {slot.day} {slot.date.toLocaleDateString()}:{" "}
-                  {formatTimeTo12HourCDT(slot.date)} -
+                  {formatTimeTo12HourCDT(slot.date)} -{" "}
                   {formatTimeTo12HourCDT(
                     new Date(slot.date).setHours(slot.date.getHours() + 1)
                   )}
@@ -66,19 +76,11 @@ export default function BookingModals({
             <div className="mt-2">
               <h3 className="font-semibold">Cost Breakdown</h3>
               <ul className="list-none">
-                <li>
-                  Coach Fee: ${calculateCostBreakdown().coachFee.toFixed(2)}
-                </li>
-                <li>
-                  Court Rental: $
-                  {calculateCostBreakdown().courtRental.toFixed(2)}
-                </li>
-                <li>
-                  Ball Machine: $
-                  {calculateCostBreakdown().ballMachine.toFixed(2)}
-                </li>
+                <li>Coach Fee: ${cost.coachFee.toFixed(2)}</li>
+                <li>Court Rental: ${cost.courtFee.toFixed(2)}</li>
+                <li>Ball Machine: ${cost.machineFee.toFixed(2)}</li>
                 <li className="font-semibold mt-2">
-                  Total: ${calculateCostBreakdown().total.toFixed(2)}
+                  Total: ${cost.total.toFixed(2)}
                 </li>
               </ul>
             </div>
@@ -100,6 +102,7 @@ export default function BookingModals({
         </div>
       )}
 
+      {/* Slot Selection Modal */}
       {slotModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
@@ -110,32 +113,30 @@ export default function BookingModals({
               ✕
             </button>
             <h2 className="text-xl font-bold mb-4">
-              Select Slots for {currentDay?.toLocaleDateString() || "Unknown"}{" "}
-              (CDT)
+              Select Slots for {currentDay?.toLocaleDateString()} (CDT)
             </h2>
-            {selectedDaySlots.length > 0 ? (
-              <div className="space-y-2">
-                {selectedDaySlots.map((slot, index) => (
-                  <div key={index} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`day-slot-${index}`}
-                      checked={slot.isSelected}
-                      onChange={() => handleSlotToggle(slot)}
-                      className="mr-2"
-                    />
-                    <label
-                      htmlFor={`day-slot-${index}`}
-                      className="text-neutrals-700 dark:text-neutrals-300"
-                    >
-                      {slot.startTime} - {slot.endTime}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-600">No slots available for this day.</p>
-            )}
+            <div className="space-y-2">
+              {selectedDaySlots.map((slot, index) => (
+                <div key={index} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`day-slot-${index}`}
+                    checked={slot.isSelected}
+                    onChange={() => handleSlotToggle(slot)}
+                    className="mr-2"
+                  />
+                  <label
+                    htmlFor={`day-slot-${index}`}
+                    className="text-neutrals-700 dark:text-neutrals-300"
+                  >
+                    {formatTimeTo12HourCDT(slot.date)} -{" "}
+                    {formatTimeTo12HourCDT(
+                      new Date(slot.date).setHours(slot.date.getHours() + 1)
+                    )}
+                  </label>
+                </div>
+              ))}
+            </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button
                 onClick={() => setSlotModalOpen(false)}
@@ -146,7 +147,6 @@ export default function BookingModals({
               <button
                 onClick={confirmSlotSelection}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                disabled={selectedDaySlots.every((slot) => !slot.isSelected)}
               >
                 Confirm Selection
               </button>
@@ -155,6 +155,7 @@ export default function BookingModals({
         </div>
       )}
 
+      {/* Payment Modal */}
       {paymentModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
@@ -166,25 +167,9 @@ export default function BookingModals({
             </button>
             <h2 className="text-xl font-bold mb-4">Payment Required</h2>
             <p>Booking saved as pending. Complete payment to confirm.</p>
-            <div className="mt-2">
-              <h3 className="font-semibold">Cost Breakdown</h3>
-              <ul className="list-none">
-                <li>
-                  Coach Fee: ${calculateCostBreakdown().coachFee.toFixed(2)}
-                </li>
-                <li>
-                  Court Rental: $
-                  {calculateCostBreakdown().courtRental.toFixed(2)}
-                </li>
-                <li>
-                  Ball Machine: $
-                  {calculateCostBreakdown().ballMachine.toFixed(2)}
-                </li>
-                <li className="font-semibold mt-2">
-                  Total: ${calculateCostBreakdown().total.toFixed(2)}
-                </li>
-              </ul>
-            </div>
+            <p className="mt-2 font-semibold">
+              Total: ${cost.total.toFixed(2)}
+            </p>
             {paymentError && (
               <p className="text-red-500 mt-2">{paymentError}</p>
             )}

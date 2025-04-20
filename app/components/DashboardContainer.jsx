@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
 import CoachOwnerNavbar from "./CoachOwnerNavbar";
@@ -9,10 +10,14 @@ export default function DashboardContainer({ children }) {
   const { role, loading } = useUser();
   const router = useRouter();
 
-  if (loading) return <div className="p-6">Loading...</div>;
-  if (!role) {
-    router.push("/auth/login");
-    return null;
+  useEffect(() => {
+    if (!loading && !role) {
+      router.push("/auth/login");
+    }
+  }, [loading, role, router]);
+
+  if (loading || !role) {
+    return <div className="p-6">Loading...</div>;
   }
 
   return (

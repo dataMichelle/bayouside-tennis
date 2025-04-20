@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useState, useContext } from "react";
+import { createContext, useContext, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 
 const PaymentContext = createContext();
@@ -13,6 +13,16 @@ export function PaymentProvider({ children }) {
     setIsProcessing(true);
     setError(null);
     try {
+      if (!bookingIds?.length || amount <= 0 || !userId || !description) {
+        throw new Error(
+          `Invalid payment parameters: ${JSON.stringify({
+            bookingIds,
+            amount,
+            userId,
+            description,
+          })}`
+        );
+      }
       console.log("Initiating Stripe checkout:", {
         bookingIds,
         amount,
@@ -25,15 +35,24 @@ export function PaymentProvider({ children }) {
         body: JSON.stringify({
           bookingIds,
           userId,
-          amount,
+          amount, // Pass in dollars
           currency: "USD",
           description,
         }),
       });
+
+      console.log("Stripe checkout response:", {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+
       const data = await response.json();
       if (!response.ok) {
         console.error("Stripe checkout failed:", data);
-        throw new Error(data.error || "Failed to initiate payment");
+        throw new Error(
+          data.error || `Payment failed with status ${response.status}`
+        );
       }
 
       const stripe = await loadStripe(
@@ -53,7 +72,7 @@ export function PaymentProvider({ children }) {
       console.log("Stripe checkout initiated:", data);
       return data;
     } catch (err) {
-      console.error("Initiate payment error:", err);
+      console.error("Initiate payment error:", err.message);
       setError(err.message);
       throw err;
     } finally {
@@ -61,36 +80,34 @@ export function PaymentProvider({ children }) {
     }
   };
 
-  const confirmBookings = async (bookingIds) => {
+  const verifyPayments = async (bookingIds, userId, totalCost) => {
     try {
-      console.log("Confirming bookings:", bookingIds);
-      const confirmPromises = bookingIds.map((id) =>
-        fetch(`/api/bookings/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "confirmed" }),
+      console.log("Verifying payments for bookingIds:", bookingIds);
+      const payments = await Promise.all(
+        bookingIds.map(async (bookingId) => {
+          const response = await fetch(`/api/payments?bookingId=${bookingId}`);
+          return response.ok ? await response.json() : null;
         })
       );
+      const missingPayments = bookingIds.filter((_, i) => !payments[i]);
+      console.log("Payment verification result:", {
+        bookingIds,
+        missingPayments,
+      });
 
-      const responses = await Promise.all(confirmPromises);
-      for (const res of responses) {
-        if (!res.ok) {
-          const errorData = await res.json();
-          console.error("Confirm booking error:", errorData);
-          throw new Error(errorData.error || "Failed to confirm booking");
-        }
-      }
-      console.log("Bookings confirmed successfully:", bookingIds);
-      return { success: true };
+      return { missingPayments, allVerified: missingPayments.length === 0 };
     } catch (err) {
-      console.error("Confirm bookings error:", err);
-      throw err;
+      console.error("Error verifying payments:", {
+        error: err.message,
+        stack: err.stack,
+      });
+      return { missingPayments: bookingIds, allVerified: false };
     }
   };
 
   return (
     <PaymentContext.Provider
-      value={{ initiatePayment, confirmBookings, error, isProcessing }}
+      value={{ initiatePayment, verifyPayments, error, isProcessing }}
     >
       {children}
     </PaymentContext.Provider>

@@ -9,10 +9,27 @@ export default function ReservationCard({
   isProcessing,
   paymentError,
 }) {
-  const { coachFee, courtRental, ballMachine, total } = calculateCostBreakdown({
-    booking,
+  const { coachFee, courtFee, machineFee, total } = calculateCostBreakdown({
+    slots: [
+      {
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        day: booking.day,
+      },
+    ],
     coach,
     settings,
+    ballMachine: booking.ballMachine || false,
+  });
+
+  console.log("ReservationCard data:", {
+    bookingId: booking._id,
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    coachId: booking.coachId,
+    coachName: coach?.name,
+    ballMachine: booking.ballMachine,
+    cost: { coachFee, courtFee, machineFee, total },
   });
 
   return (
@@ -37,8 +54,8 @@ export default function ReservationCard({
         <strong>Cost Breakdown:</strong>
         <ul className="list-none ml-4">
           <li>Coach Fee: ${coachFee.toFixed(2)}</li>
-          <li>Court Rental: ${courtRental.toFixed(2)}</li>
-          <li>Ball Machine: ${ballMachine.toFixed(2)}</li>
+          <li>Court Rental: ${courtFee.toFixed(2)}</li>
+          <li>Ball Machine: ${machineFee.toFixed(2)}</li>
           <li>
             <strong>Total: ${total.toFixed(2)}</strong>
           </li>

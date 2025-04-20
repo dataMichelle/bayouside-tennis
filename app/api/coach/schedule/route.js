@@ -1,4 +1,3 @@
-// app/api/coach/schedule/route.js
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -8,11 +7,6 @@ export async function POST(request) {
     const { coachId, startOfMonth, endOfMonth } = await request.json();
 
     if (!coachId || !startOfMonth || !endOfMonth) {
-      console.error("Missing required fields:", {
-        coachId,
-        startOfMonth,
-        endOfMonth,
-      });
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -25,12 +19,30 @@ export async function POST(request) {
     const startDate = new Date(startOfMonth);
     const endDate = new Date(endOfMonth);
 
+    // Look up user by firebaseUid
+    const user = await db.collection("users").findOne({ firebaseUid: coachId });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Coach user not found" },
+        { status: 404 }
+      );
+    }
+
+    const coach = await db
+      .collection("coaches")
+      .findOne({ userId: user._id.toString() });
+
+    if (!coach) {
+      return NextResponse.json({ error: "Coach not found" }, { status: 404 });
+    }
+
     const bookings = await db
       .collection("bookings")
       .aggregate([
         {
           $match: {
-            coachId, // Still a string
+            coachId: coach.userId, // this is the user's _id as string
             startTime: { $gte: startDate, $lte: endDate },
             status: "confirmed",
           },
@@ -51,9 +63,7 @@ export async function POST(request) {
             as: "user",
           },
         },
-        {
-          $unwind: { path: "$user", preserveNullAndEmptyArrays: true },
-        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
         {
           $project: {
             _id: 1,
@@ -69,7 +79,9 @@ export async function POST(request) {
       ])
       .toArray();
 
-    console.log(`Returning ${bookings.length} bookings for coachId ${coachId}`);
+    console.log(
+      `Returning ${bookings.length} bookings for coach UID ${coachId}`
+    );
     return NextResponse.json({ bookings }, { status: 200 });
   } catch (error) {
     console.error("Error in /api/coach/schedule:", error);

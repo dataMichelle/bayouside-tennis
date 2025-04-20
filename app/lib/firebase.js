@@ -25,9 +25,7 @@ const app = initializeApp(firebaseConfig);
 // ✅ Export auth and set persistence (AFTER defining it)
 export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence)
-  .then(() => {
-    console.log("Firebase auth persistence set to local");
-  })
+  .then(() => {})
   .catch((err) => {
     console.error("Failed to set Firebase auth persistence:", err);
   });

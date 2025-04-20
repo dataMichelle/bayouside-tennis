@@ -1,15 +1,9 @@
-import { MongoClient } from "mongodb";
 import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
 
 export async function GET() {
-  // Named export
-  let client;
   try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error("MONGODB_URI is not defined");
-    }
-    client = new MongoClient(process.env.MONGODB_URI);
-    await client.connect();
+    const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
     const settings = await db.collection("settings").findOne();
     if (!settings) {
@@ -20,11 +14,10 @@ export async function GET() {
       ballMachineCost: settings.ballMachineCost,
     });
   } catch (error) {
+    console.error("Error fetching settings:", error);
     return NextResponse.json(
       { error: "Failed to fetch settings", details: error.message },
       { status: 500 }
     );
-  } finally {
-    if (client) await client.close();
   }
 }
