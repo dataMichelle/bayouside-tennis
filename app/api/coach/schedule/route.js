@@ -79,9 +79,6 @@ export async function POST(request) {
       ])
       .toArray();
 
-    console.log(
-      `Returning ${bookings.length} bookings for coach UID ${coachId}`
-    );
     return NextResponse.json({ bookings }, { status: 200 });
   } catch (error) {
     console.error("Error in /api/coach/schedule:", error);

@@ -6,8 +6,6 @@ export async function POST(request) {
     const body = await request.json();
     const coachId = body.coachId;
 
-    console.log("📬 Received POST /api/coach/players with:", coachId);
-
     if (!coachId) {
       return NextResponse.json(
         { error: "Coach ID is required" },
@@ -16,7 +14,6 @@ export async function POST(request) {
     }
 
     const players = await getPlayersForCoach(coachId);
-    console.log("✅ Players returned:", players.length);
 
     return NextResponse.json({ players }, { status: 200 });
   } catch (error) {

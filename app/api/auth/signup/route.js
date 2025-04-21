@@ -4,8 +4,6 @@ import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
-  console.log("✅ POST /api/signup route hit");
-
   try {
     const body = await request.json();
     const { name, email, phone, password, uid, role } = body; // Client sends 'uid'
@@ -34,15 +32,12 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    console.log("Received user data:", { name, email, phone, uid, role });
-
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
     const users = db.collection("users");
 
     const existingUser = await users.findOne({ email });
     if (existingUser) {
-      console.log("Email already exists:", email);
       return NextResponse.json(
         { error: "Email already exists" },
         { status: 400 }
@@ -62,7 +57,6 @@ export async function POST(request) {
     };
 
     const result = await users.insertOne(newUser);
-    console.log("✅ User inserted:", result.insertedId, newUser);
 
     return NextResponse.json(
       { message: "User created", userId: result.insertedId },

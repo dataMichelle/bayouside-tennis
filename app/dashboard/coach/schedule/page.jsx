@@ -50,11 +50,7 @@ export default function CoachSchedulePage() {
         if (!res.ok) throw new Error(data.error || "Failed to fetch schedule");
 
         const formatted = data.bookings.map((booking) => {
-          console.log("Formatting booking:", {
-            _id: booking._id,
-            startTime: booking.startTime,
-            endTime: booking.endTime,
-          });
+      
           // Convert UTC to CDT ISO string
           const startCDT = formatInTimeZone(
             toDate(booking.startTime),
@@ -78,7 +74,6 @@ export default function CoachSchedulePage() {
           };
         });
 
-        console.log("Formatted events for FullCalendar:", formatted);
         setEvents(formatted);
       } catch (err) {
         console.error(
@@ -102,7 +97,6 @@ export default function CoachSchedulePage() {
       });
       const data = await response.json();
       if (response.ok) {
-        console.log("Booking details fetched:", data);
         setSelectedBooking(data);
       } else {
         throw new Error(data.error || "Failed to fetch booking");

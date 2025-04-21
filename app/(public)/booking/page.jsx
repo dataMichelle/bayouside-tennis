@@ -42,13 +42,9 @@ export default function BookingPage() {
   } = usePayment();
 
   useEffect(() => {
-    console.log("BookingPage useEffect started");
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      console.log(
-        "Auth state changed, user:",
-        currentUser ? currentUser.uid : "none"
-      );
+
       if (currentUser) {
         try {
           const token = await currentUser.getIdToken();
@@ -76,7 +72,6 @@ export default function BookingPage() {
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
 
-          console.log("Fetched coaches:", coachData);
           setCoaches(Array.isArray(coachData) ? coachData : []);
           setBookings(bookingsData.bookings || []);
           setSettings(settingsData);
@@ -85,7 +80,6 @@ export default function BookingPage() {
           const bookingIds = searchParams.get("bookingIds");
           if (success === "true" && bookingIds) {
             const ids = JSON.parse(decodeURIComponent(bookingIds));
-            console.log("Verifying payments:", ids);
             await verifyPayments(ids);
             router.replace("/players/booking");
           }
@@ -97,10 +91,8 @@ export default function BookingPage() {
         setError("Please log in to access booking.");
       }
       setLoading(false);
-      console.log("BookingPage useEffect completed, loading set to false");
     });
     return () => {
-      console.log("Cleaning up BookingPage useEffect");
       unsubscribe();
     };
   }, [searchParams, router, verifyPayments]);
@@ -121,7 +113,6 @@ export default function BookingPage() {
   };
 
   const generateHourlySlots = useCallback((startTime, endTime, day, date) => {
-    console.log("Generating slots:", { startTime, endTime, day, date });
     const start = parseInt(startTime.split(":")[0], 10);
     const end = parseInt(endTime.split(":")[0], 10);
     if (isNaN(start) || isNaN(end)) {
@@ -166,7 +157,6 @@ export default function BookingPage() {
         dayName,
         date
       );
-      console.log("Generated slots:", allSlots);
 
       return allSlots.filter((slot) => {
         return !bookings.some((booking) => {
@@ -310,7 +300,6 @@ export default function BookingPage() {
           }).total,
           createdAt: new Date().toISOString(),
         };
-        console.log("Submitting booking:", bookingData);
         return fetch("/api/booking", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -343,12 +332,7 @@ export default function BookingPage() {
         settings,
         ballMachine,
       });
-      console.log("Initiating payment with:", {
-        bookingIds: pendingBookingIds,
-        amount: costBreakdown.total,
-        description: `Payment for ${selectedSlots.length} bookings`,
-        userId: mongoUserId,
-      });
+
       await initiatePayment(
         pendingBookingIds,
         costBreakdown.total,

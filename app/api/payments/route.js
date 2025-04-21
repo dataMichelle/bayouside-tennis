@@ -11,8 +11,6 @@ export async function GET(request) {
       .filter((id) => id && id !== "null")
       .map((id) => new ObjectId(id));
 
-    console.log("GET /api/payments called:", { bookingIds: parsedIds });
-
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 

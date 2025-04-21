@@ -8,8 +8,6 @@ export async function PATCH(request, context) {
     const { id } = await context.params;
     const { status } = await request.json();
 
-    console.log("PATCH /api/booking/[id] called:", { id, status });
-
     if (!id || !status) {
       console.error("Missing required fields:", { id, status });
       return NextResponse.json(
@@ -23,7 +21,6 @@ export async function PATCH(request, context) {
 
     // If status is "confirmed", verify payment exists
     if (status === "confirmed") {
-      console.log("Checking for payment for bookingId:", { id });
       const payment = await db
         .collection("payments")
         .findOne({ bookingId: id.toString() });
@@ -34,13 +31,8 @@ export async function PATCH(request, context) {
           { status: 400 }
         );
       }
-      console.log("Payment verified:", {
-        paymentId: payment._id,
-        bookingId: id,
-      });
     }
 
-    console.log("Updating booking status:", { id, status });
     const result = await db.collection("bookings").updateOne(
       { _id: new ObjectId(id) },
       {
@@ -55,12 +47,6 @@ export async function PATCH(request, context) {
       console.error("Booking not found:", { id });
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
-
-    console.log("Booking updated successfully:", {
-      id,
-      status,
-      modifiedCount: result.modifiedCount,
-    });
 
     return NextResponse.json({ message: "Booking updated" }, { status: 200 });
   } catch (error) {

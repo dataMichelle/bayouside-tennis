@@ -12,20 +12,15 @@ export default function Navbar() {
   const router = useRouter();
   const { firebaseUser, userData, role, loading } = useUser();
 
-  console.log("Navbar state:", { firebaseUser, userData, role, loading });
-
   // Use firebaseUser to determine logged-in state
   const isLoggedIn = !!firebaseUser;
   const navRole = userData?.role || role || "player"; // Fallback to role or "player"
   const links = getNavLinksForRole(navRole, isLoggedIn);
 
-  console.log("Navbar links:", { isLoggedIn, navRole, links });
-
   const handleLogout = () => {
     localStorage.removeItem("userRole");
     signOut(auth)
       .then(() => {
-        console.log("Navbar - Logout successful");
         router.push("/");
       })
       .catch((error) => {

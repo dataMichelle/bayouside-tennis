@@ -14,14 +14,10 @@ export default function OwnerSchedulePage() {
   useEffect(() => {
     const fetchSchedule = async () => {
       try {
-        console.log(
-          "OwnerSchedulePage - Browser timezone:",
-          Intl.DateTimeFormat().resolvedOptions().timeZone
-        );
+   
         const res = await fetch("/api/owner/schedule");
         if (!res.ok) throw new Error("Failed to load schedule");
         const data = await res.json();
-        console.log("OwnerSchedulePage - Raw events from API:", data);
 
         // Convert UTC times to CDT ISO strings
         const formattedEvents = data.map((event) => {
@@ -35,13 +31,7 @@ export default function OwnerSchedulePage() {
             "America/Chicago",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
           ); // e.g., "2025-04-22T16:00:00-05:00"
-          console.log("Formatting event:", {
-            id: event.id,
-            start: event.start,
-            startCDT,
-            end: event.end,
-            endCDT,
-          });
+      
           return {
             ...event,
             start: startCDT,
@@ -49,10 +39,7 @@ export default function OwnerSchedulePage() {
           };
         });
 
-        console.log(
-          "OwnerSchedulePage - Formatted events for FullCalendar:",
-          formattedEvents
-        );
+     
         setEvents(formattedEvents);
       } catch (err) {
         console.error(

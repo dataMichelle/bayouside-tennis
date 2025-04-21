@@ -91,10 +91,6 @@ export async function getPaymentsForCoach(coachId) {
       ])
       .toArray();
 
-    console.log(
-      `✅ Payments retrieved for coachId ${coachId}:`,
-      payments.length
-    );
     return payments;
   } catch (error) {
     console.error(`❌ getPaymentsForCoach error (coachId: ${coachId}):`, error);
@@ -115,8 +111,6 @@ export async function getPlayersForCoach(coachId) {
       .find({ coachId })
       .toArray();
 
-    console.log(`📘 Bookings found for coachId ${coachId}:`, bookings.length);
-
     const playerIds = [
       ...new Set(bookings.map((b) => b.playerId).filter(Boolean)),
     ];
@@ -124,8 +118,6 @@ export async function getPlayersForCoach(coachId) {
     const objectIds = playerIds
       .filter((id) => ObjectId.isValid(id))
       .map((id) => new ObjectId(id));
-
-    console.log("🎯 Converted ObjectIds for players:", objectIds);
 
     const players = await db
       .collection("users")

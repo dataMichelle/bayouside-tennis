@@ -57,7 +57,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    console.log(`Booking details for bookingId ${bookingId}:`, booking);
     return NextResponse.json(booking, { status: 200 });
   } catch (error) {
     console.error("Error fetching booking details:", error);

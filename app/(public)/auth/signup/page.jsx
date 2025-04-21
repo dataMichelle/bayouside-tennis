@@ -25,8 +25,6 @@ export default function SignupPage() {
     setError(null);
     setLoading(true);
 
-    console.log("handleSignup called with:", { name, email, phone, role });
-
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
@@ -40,10 +38,8 @@ export default function SignupPage() {
         password
       );
       const uid = userCredential.user.uid;
-      console.log("Firebase user created with UID:", uid);
 
       const payload = { name, email, phone, password, uid, role };
-      console.log("Sending to /api/signup:", payload);
 
       const res = await fetch("/api/signup", {
         method: "POST",
@@ -65,8 +61,6 @@ export default function SignupPage() {
         setLoading(false);
         return;
       }
-
-      console.log("Signup successful:", result);
 
       toast.success("Signup successful!", {
         duration: 3000,

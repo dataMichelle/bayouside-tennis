@@ -7,7 +7,6 @@ export async function POST(request) {
   let client;
   try {
     const { email, password } = await request.json();
-    console.log("POST /api/auth/login - Called with:", { email });
 
     if (!email || !password) {
       return NextResponse.json(

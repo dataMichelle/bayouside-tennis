@@ -10,12 +10,6 @@ export function PaymentProvider({ children }) {
 
   const initiatePayment = useCallback(
     async (bookingIds, amount, description, userId) => {
-      console.log("Initiating payment with:", {
-        bookingIds,
-        amount,
-        description,
-        userId,
-      });
       if (
         !Array.isArray(bookingIds) ||
         bookingIds.some((id) => !id || typeof id !== "string")
@@ -57,7 +51,6 @@ export function PaymentProvider({ children }) {
         }
 
         const data = await response.json();
-        console.log("Stripe checkout response:", data);
         window.location.href = data.sessionUrl;
       } catch (err) {
         console.error("Payment initiation failed:", err.message);
@@ -71,7 +64,6 @@ export function PaymentProvider({ children }) {
   );
 
   const verifyPayments = useCallback(async (bookingIds) => {
-    console.log("Calling verifyPayments with:", { bookingIds });
     try {
       const res = await fetch("/api/stripe/verify", {
         method: "POST",
@@ -86,7 +78,6 @@ export function PaymentProvider({ children }) {
       }
 
       const data = await res.json();
-      console.log("Verify payments response:", data);
       return data;
     } catch (err) {
       console.error("Error verifying payments:", err.message);

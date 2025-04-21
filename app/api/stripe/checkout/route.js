@@ -11,12 +11,6 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const { bookingIds, amount, description, userId } = body;
-    console.log("Stripe checkout request:", {
-      bookingIds,
-      amount,
-      description,
-      userId,
-    });
 
     // Validate inputs
     if (!Array.isArray(bookingIds)) {
@@ -63,7 +57,6 @@ export async function POST(req) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    console.log("Using base URL:", baseUrl);
 
     // Create Stripe session
     const session = await stripe.checkout.sessions.create({
@@ -99,7 +92,6 @@ export async function POST(req) {
         { _id: { $in: sanitizedIds.map((id) => new ObjectId(id)) } },
         { $set: { stripeSessionId: session.id } }
       );
-    console.log("Booking update result:", updateResult);
 
     return NextResponse.json({ sessionUrl: session.url });
   } catch (error) {

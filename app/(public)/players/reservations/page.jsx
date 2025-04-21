@@ -24,13 +24,11 @@ export default function ReservationsPage() {
       return;
     }
     try {
-      console.log("Fetching reservations for user ID:", userData.id);
       const res = await fetch(
         `/api/player/reservations?playerId=${userData.id}`
       );
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      console.log("Fetched reservations:", data.bookings);
       setBookings(data.bookings || []);
       setFetchError(null);
     } catch (err) {
@@ -48,7 +46,6 @@ export default function ReservationsPage() {
 
     const id =
       typeof booking._id === "object" ? booking._id.toString() : booking._id;
-    console.log("Booking ID being sent to Stripe for Pay Now:", id);
 
     setIsProcessingId(id);
     try {
@@ -78,13 +75,10 @@ export default function ReservationsPage() {
         const validIds = Array.isArray(parsed)
           ? parsed.filter((id) => typeof id === "string" && id !== "null")
           : [];
-        console.log("Verifying payment IDs:", validIds);
 
         if (validIds.length > 0) {
           const response = await verifyPayments(validIds);
-          console.log("Payment verification response:", response);
           if (response.allVerified) {
-            console.log("All payments verified, refreshing reservations");
             await fetchReservations();
             const newParams = new URLSearchParams(searchParams.toString());
             newParams.delete("success");
@@ -112,22 +106,16 @@ export default function ReservationsPage() {
   // Load reservations when user data is ready
   useEffect(() => {
     if (firebaseUser && userData?.id) {
-      console.log("User data ready, fetching reservations:", {
-        userId: userData.id,
-      });
       fetchReservations();
     } else {
-      console.log("Waiting for user data:", { firebaseUser, userData });
     }
   }, [firebaseUser, userData?.id, fetchReservations]);
 
   // Watch for Stripe success redirects
   useEffect(() => {
     if (userData?.id) {
-      console.log("Running verifyAndRefresh with user ID:", userData.id);
       verifyAndRefresh();
     } else {
-      console.log("Skipping verifyAndRefresh: userData.id is undefined");
     }
   }, [verifyAndRefresh, userData?.id]);
 

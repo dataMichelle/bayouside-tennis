@@ -20,12 +20,6 @@ export default function ReservationCard({
     ballMachine: booking.ballMachine || false,
   });
 
-  console.log("ReservationCard data:", {
-    bookingId: booking._id,
-    coachId: booking.coachId,
-    coachName: coach?.name,
-  });
-
   return (
     <li className="border-b pb-2">
       <p>

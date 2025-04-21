@@ -10,7 +10,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 export async function POST(req) {
   try {
     const { bookingIds } = await req.json();
-    console.log("Stripe verify request:", { bookingIds });
 
     if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
       console.error("Invalid booking IDs:", bookingIds);
@@ -26,7 +25,6 @@ export async function POST(req) {
     const allVerified = await Promise.all(
       bookingIds.map(async (bookingId) => {
         try {
-          console.log(`Processing booking ID: ${bookingId}`);
           const booking = await db
             .collection("bookings")
             .findOne({ _id: new ObjectId(bookingId) });
@@ -38,18 +36,12 @@ export async function POST(req) {
             console.error(`No Stripe session ID for booking: ${bookingId}`);
             return false;
           }
-          console.log(`Booking found: ${bookingId}`, {
-            stripeSessionId: booking.stripeSessionId,
-          });
 
           const session = await stripe.checkout.sessions.retrieve(
             booking.stripeSessionId
           );
-          console.log(`Stripe session retrieved: ${bookingId}`, {
-            payment_status: session.payment_status,
-          });
+
           if (session.payment_status !== "paid") {
-            console.log(`Payment not completed for booking: ${bookingId}`);
             return false;
           }
 
@@ -60,17 +52,12 @@ export async function POST(req) {
               { _id: new ObjectId(bookingId) },
               { $set: { status: "confirmed", updatedAt: new Date() } }
             );
-          console.log(`Booking update result for ${bookingId}:`, updateResult);
 
           // Check for existing payment to prevent duplicates
           const existingPayment = await db.collection("payments").findOne({
             bookingId: new ObjectId(bookingId),
           });
           if (existingPayment) {
-            console.log(
-              `Payment already exists for booking: ${bookingId}`,
-              existingPayment
-            );
             return true;
           }
 
@@ -86,7 +73,6 @@ export async function POST(req) {
             createdAt: new Date(),
             updatedAt: new Date(),
           });
-          console.log(`Payment insert result for ${bookingId}:`, paymentResult);
 
           return true;
         } catch (error) {
@@ -100,7 +86,6 @@ export async function POST(req) {
       })
     );
 
-    console.log("Verification result:", { allVerified });
     return NextResponse.json(
       { allVerified: allVerified.every((v) => v) },
       { status: 200 }

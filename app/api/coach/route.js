@@ -7,10 +7,6 @@ export async function GET() {
     const db = client.db("bayou-side-tennis");
 
     const coaches = await db.collection("coaches").find({}).toArray();
-    console.log(
-      "Coaches fetched:",
-      coaches.map((c) => ({ id: c._id.toString(), name: c.name }))
-    );
 
     const sanitizedCoaches = coaches.map((coach) => ({
       _id: coach._id.toString(),
