@@ -7,7 +7,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { format, toDate } from "date-fns";
-import { utcToZonedTime } from "date-fns-tz";
+import { utcToZonedTime, formatInTimeZone } from "date-fns-tz";
 
 export default function CoachSchedulePage() {
   const [events, setEvents] = useState([]);
@@ -55,13 +55,24 @@ export default function CoachSchedulePage() {
             startTime: booking.startTime,
             endTime: booking.endTime,
           });
+          // Convert UTC to CDT ISO string
+          const startCDT = formatInTimeZone(
+            toDate(booking.startTime),
+            "America/Chicago",
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+          ); // e.g., "2025-04-22T15:00:00-05:00"
+          const endCDT = formatInTimeZone(
+            toDate(booking.endTime),
+            "America/Chicago",
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+          ); // e.g., "2025-04-22T16:00:00-05:00"
           return {
             id: booking._id,
             title: booking.coachId
               ? `Coaching: ${booking.playerName || "Unknown"}`
               : "Court Booking",
-            start: booking.startTime, // ISO string in UTC
-            end: booking.endTime, // ISO string in UTC
+            start: startCDT,
+            end: endCDT,
             backgroundColor: booking.coachId ? "green" : "blue",
             borderColor: booking.coachId ? "green" : "blue",
           };
@@ -130,6 +141,11 @@ export default function CoachSchedulePage() {
           }}
           eventClick={handleEventClick}
           eventTimeFormat={{
+            hour: "numeric",
+            minute: "2-digit",
+            meridiem: "short",
+          }}
+          slotLabelFormat={{
             hour: "numeric",
             minute: "2-digit",
             meridiem: "short",

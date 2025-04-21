@@ -1,11 +1,10 @@
-// app/dashboard/owner/schedule/page.jsx
-
 "use client";
 
 import { useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import DashboardHeader from "@/components/DashboardHeader";
+import { formatInTimeZone, toDate } from "date-fns-tz";
 
 export default function OwnerSchedulePage() {
   const [events, setEvents] = useState([]);
@@ -15,11 +14,51 @@ export default function OwnerSchedulePage() {
   useEffect(() => {
     const fetchSchedule = async () => {
       try {
+        console.log(
+          "OwnerSchedulePage - Browser timezone:",
+          Intl.DateTimeFormat().resolvedOptions().timeZone
+        );
         const res = await fetch("/api/owner/schedule");
         if (!res.ok) throw new Error("Failed to load schedule");
         const data = await res.json();
-        setEvents(data);
+        console.log("OwnerSchedulePage - Raw events from API:", data);
+
+        // Convert UTC times to CDT ISO strings
+        const formattedEvents = data.map((event) => {
+          const startCDT = formatInTimeZone(
+            toDate(event.start),
+            "America/Chicago",
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+          ); // e.g., "2025-04-22T15:00:00-05:00"
+          const endCDT = formatInTimeZone(
+            toDate(event.end),
+            "America/Chicago",
+            "yyyy-MM-dd'T'HH:mm:ssXXX"
+          ); // e.g., "2025-04-22T16:00:00-05:00"
+          console.log("Formatting event:", {
+            id: event.id,
+            start: event.start,
+            startCDT,
+            end: event.end,
+            endCDT,
+          });
+          return {
+            ...event,
+            start: startCDT,
+            end: endCDT,
+          };
+        });
+
+        console.log(
+          "OwnerSchedulePage - Formatted events for FullCalendar:",
+          formattedEvents
+        );
+        setEvents(formattedEvents);
       } catch (err) {
+        console.error(
+          "OwnerSchedulePage - Error fetching schedule:",
+          err.message
+        );
         setError(err.message);
       } finally {
         setLoading(false);
@@ -38,7 +77,6 @@ export default function OwnerSchedulePage() {
       <FullCalendar
         plugins={[timeGridPlugin]}
         initialView="timeGridWeek"
-        timeZone="America/Chicago"
         slotMinTime="06:00:00"
         slotMaxTime="21:00:00"
         events={events}
@@ -49,6 +87,11 @@ export default function OwnerSchedulePage() {
           right: "timeGridWeek,timeGridDay",
         }}
         eventTimeFormat={{
+          hour: "numeric",
+          minute: "2-digit",
+          meridiem: "short",
+        }}
+        slotLabelFormat={{
           hour: "numeric",
           minute: "2-digit",
           meridiem: "short",
