@@ -1,88 +1,60 @@
+// app/api/booking/route.js
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-06-20",
-});
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.text();
-    const signature = request.headers.get("stripe-signature");
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const body = await req.json();
+    const {
+      playerId,
+      coachId,
+      startTime,
+      endTime,
+      totalCost,
+      ballMachine = false,
+    } = body;
 
-    if (!webhookSecret || !signature) {
+    if (
+      !playerId ||
+      !coachId ||
+      !startTime ||
+      !endTime ||
+      totalCost === undefined
+    ) {
       return NextResponse.json(
-        { error: "Missing webhook secret or signature" },
+        { error: "Missing required booking fields." },
         { status: 400 }
       );
     }
 
-    const event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      webhookSecret
+    const client = await clientPromise;
+    const db = client.db("bayou-side-tennis");
+
+    const newBooking = {
+      _id: new ObjectId(),
+      playerId,
+      coachId,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      day: new Date(startTime).toLocaleDateString("en-US", {
+        timeZone: "America/Chicago",
+      }),
+      totalCost,
+      ballMachine,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await db.collection("bookings").insertOne(newBooking);
+
+    return NextResponse.json({ success: true, bookingId: newBooking._id });
+  } catch (error) {
+    console.error("Booking POST error:", error);
+    return NextResponse.json(
+      { error: "Failed to create booking." },
+      { status: 500 }
     );
-
-    if (event.type !== "checkout.session.completed") {
-      return NextResponse.json({ received: true }, { status: 200 });
-    }
-
-    const session = event.data.object;
-    const { bookingIds, userId, totalCost } = session.metadata;
-    const amountTotal = session.amount_total;
-    const currency = session.currency;
-    const stripePaymentId = session.payment_intent;
-
-    const parsedBookingIds = JSON.parse(bookingIds);
-    const db = (await clientPromise).db("bayou-side-tennis");
-
-    const sessionDb = (await clientPromise).startSession();
-    await sessionDb.withTransaction(async () => {
-      for (const bookingId of parsedBookingIds) {
-        const payment = {
-          _id: new ObjectId(),
-          bookingId: new ObjectId(bookingId),
-          userId,
-          amount: Math.round(amountTotal / parsedBookingIds.length),
-          currency,
-          status: "completed",
-          stripePaymentId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        // Prevent duplicate payments
-        const existing = await db.collection("payments").findOne({
-          bookingId: new ObjectId(bookingId),
-          stripePaymentId,
-        });
-
-        if (!existing) {
-          await db
-            .collection("payments")
-            .insertOne(payment, { session: sessionDb });
-        }
-
-        await db.collection("bookings").updateOne(
-          { _id: new ObjectId(bookingId) },
-          {
-            $set: {
-              status: "confirmed",
-              updatedAt: new Date().toISOString(),
-            },
-          },
-          { session: sessionDb }
-        );
-      }
-    });
-
-    await sessionDb.endSession();
-    return NextResponse.json({ received: true });
-  } catch (err) {
-    console.error("Webhook error:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }

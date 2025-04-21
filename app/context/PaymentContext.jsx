@@ -1,74 +1,102 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import { verifyPayments } from "@/lib/verifyPayments";
+import { createContext, useContext, useState, useCallback } from "react";
 
 const PaymentContext = createContext();
 
 export function PaymentProvider({ children }) {
-  const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
 
-  const initiatePayment = async (bookingIds, amount, description, userId) => {
-    setIsProcessing(true);
-    setError(null);
+  const initiatePayment = useCallback(
+    async (bookingIds, amount, description, userId) => {
+      console.log("Initiating payment with:", {
+        bookingIds,
+        amount,
+        description,
+        userId,
+      });
+      if (
+        !Array.isArray(bookingIds) ||
+        bookingIds.some((id) => !id || typeof id !== "string")
+      ) {
+        console.error("Invalid booking IDs:", bookingIds);
+        throw new Error("Invalid booking IDs");
+      }
+      if (!amount || typeof amount !== "number" || amount <= 0) {
+        console.error("Invalid amount:", amount);
+        throw new Error("Invalid amount");
+      }
+      if (!description || typeof description !== "string") {
+        console.error("Invalid description:", description);
+        throw new Error("Invalid description");
+      }
+      if (!userId || typeof userId !== "string") {
+        console.error("Invalid userId:", userId);
+        throw new Error("Invalid userId");
+      }
 
-    try {
-      if (!bookingIds?.length || amount <= 0 || !userId || !description) {
-        throw new Error(
-          `Invalid payment parameters: ${JSON.stringify({
+      try {
+        setIsProcessing(true);
+        setError(null);
+        const response = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             bookingIds,
             amount,
-            userId,
             description,
-          })}`
-        );
-      }
+            userId,
+          }),
+        });
 
-      const response = await fetch("/api/stripe/checkout", {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Stripe checkout response error:", errorText);
+          throw new Error(errorText);
+        }
+
+        const data = await response.json();
+        console.log("Stripe checkout response:", data);
+        window.location.href = data.sessionUrl;
+      } catch (err) {
+        console.error("Payment initiation failed:", err.message);
+        setError(err.message);
+        throw err;
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    []
+  );
+
+  const verifyPayments = useCallback(async (bookingIds) => {
+    console.log("Calling verifyPayments with:", { bookingIds });
+    try {
+      const res = await fetch("/api/stripe/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingIds,
-          userId,
-          amount,
-          currency: "USD",
-          description,
-        }),
+        body: JSON.stringify({ bookingIds }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error("Stripe checkout failed:", data);
-        throw new Error(
-          data.error || `Payment failed with status ${response.status}`
-        );
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Stripe verify response error:", errorText);
+        throw new Error(`Failed to verify payments: ${errorText}`);
       }
 
-      const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-      );
-      if (!stripe) throw new Error("Failed to load Stripe");
-
-      const { error: stripeError } = await stripe.redirectToCheckout({
-        sessionId: data.sessionId,
-      });
-
-      if (stripeError) throw new Error(stripeError.message);
+      const data = await res.json();
+      console.log("Verify payments response:", data);
+      return data;
     } catch (err) {
-      console.error("Initiate payment error:", err.message);
-      setError(err.message);
+      console.error("Error verifying payments:", err.message);
       throw err;
-    } finally {
-      setIsProcessing(false);
     }
-  };
+  }, []);
 
   return (
     <PaymentContext.Provider
-      value={{ initiatePayment, verifyPayments, error, isProcessing }}
+      value={{ initiatePayment, verifyPayments, isProcessing, error }}
     >
       {children}
     </PaymentContext.Provider>

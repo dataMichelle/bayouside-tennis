@@ -35,7 +35,9 @@ export default function BookingModals({
 
   const cost = calculateCostBreakdown({
     slots: selectedSlots,
-    coach: coaches.find((c) => c._id === selectedCoach),
+    coach: Array.isArray(coaches)
+      ? coaches.find((c) => c._id === selectedCoach)
+      : null,
     settings,
     ballMachine,
   });

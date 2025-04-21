@@ -1,37 +1,35 @@
-// app/lib/verifyPayments.js
+import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
-export async function verifyPayments(bookingIds) {
-  try {
-    if (!bookingIds || bookingIds.length === 0) {
-      console.warn("No bookingIds passed to verifyPayments");
-      return { missingPayments: [], allVerified: true };
-    }
-
-    const query = bookingIds.map((id) => `bookingId=${id}`).join("&");
-    const res = await fetch(`/api/payments?${query}`);
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Failed to verify payments: ${errorText}`);
-    }
-
-    const payments = await res.json();
-
-    const paidIds = Array.isArray(payments)
-      ? payments.map((p) => p.bookingId?.toString())
-      : payments?.bookingId
-      ? [payments.bookingId?.toString()]
-      : [];
-
-    const missingPayments = bookingIds.filter((id) => !paidIds.includes(id));
-    return { missingPayments, allVerified: missingPayments.length === 0 };
-  } catch (err) {
-    console.error("Error verifying payments:", {
-      error: err,
-      message: err?.message || "Unknown error",
-      stack: err?.stack || "no stack trace",
-      bookingIds,
-    });
-    return { missingPayments: bookingIds, allVerified: false };
+export async function POST(req) {
+  const { bookingIds } = await req.json();
+  if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+    return NextResponse.json({ error: "Invalid bookingIds" }, { status: 400 });
   }
+
+  const client = await clientPromise;
+  const db = client.db("bayou-side-tennis");
+
+  let allVerified = true;
+
+  for (const id of bookingIds) {
+    const payments = await db
+      .collection("payments")
+      .find({ bookingId: new ObjectId(id), status: "succeeded" })
+      .toArray();
+
+    if (payments.length > 0) {
+      await db
+        .collection("bookings")
+        .updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: "confirmed", updatedAt: new Date() } }
+        );
+    } else {
+      allVerified = false;
+    }
+  }
+
+  return NextResponse.json({ allVerified });
 }

@@ -1,54 +1,34 @@
+// app/api/payments/route.js
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-export async function PATCH(request) {
+export async function GET(request) {
   try {
-    const { bookingId, userId, amount, stripePaymentId } = await request.json();
+    const url = new URL(request.url);
+    const bookingIds = url.searchParams.getAll("bookingId");
+    const parsedIds = bookingIds
+      .filter((id) => id && id !== "null")
+      .map((id) => new ObjectId(id));
 
-    if (!bookingId || !userId || !amount || !stripePaymentId) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
+    console.log("GET /api/payments called:", { bookingIds: parsedIds });
 
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
 
-    // Create the payment
-    const newPayment = {
-      _id: new ObjectId(),
-      bookingId: new ObjectId(bookingId),
-      userId,
-      amount: parseFloat(amount),
-      currency: "USD",
-      status: "completed",
-      stripePaymentId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const payments = await db
+      .collection("payments")
+      .find({ bookingId: { $in: parsedIds } })
+      .toArray();
 
-    await db.collection("payments").insertOne(newPayment);
-
-    // Update the booking status
-    await db.collection("bookings").updateOne(
-      { _id: new ObjectId(bookingId) },
-      {
-        $set: {
-          status: "confirmed",
-          updatedAt: new Date(),
-        },
-      }
-    );
-
-    return NextResponse.json({
-      message: "Payment recorded and booking confirmed",
+    return NextResponse.json(payments);
+  } catch (error) {
+    console.error("Error fetching payments:", {
+      message: error.message,
+      stack: error.stack,
     });
-  } catch (err) {
-    console.error("PATCH /api/payments error:", err.message);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to fetch payments" },
       { status: 500 }
     );
   }

@@ -7,7 +7,6 @@ import { auth } from "@/lib/firebase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { usePayment } from "@/context/PaymentContext";
-import PageContainer from "@/components/PageContainer";
 import BookingModals from "@/components/BookingModals";
 import { calculateCostBreakdown } from "@/utils/cost";
 
@@ -17,9 +16,8 @@ export default function BookingPage() {
   const [coaches, setCoaches] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [settings, setSettings] = useState({
-    courtRentalCost: 20,
-    ballMachineCost: 40,
-    coachFeeSplitPercentage: 60,
+    courtRentalCost: 0,
+    ballMachineCost: 0,
   });
   const [selectedCoach, setSelectedCoach] = useState("");
   const [ballMachine, setBallMachine] = useState(false);
@@ -38,25 +36,26 @@ export default function BookingPage() {
   const searchParams = useSearchParams();
   const {
     initiatePayment,
-    confirmBookings,
+    verifyPayments,
     error: paymentError,
     isProcessing,
   } = usePayment();
 
   useEffect(() => {
+    console.log("BookingPage useEffect started");
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      console.log(
+        "Auth state changed, user:",
+        currentUser ? currentUser.uid : "none"
+      );
       if (currentUser) {
         try {
+          const token = await currentUser.getIdToken();
           const userRes = await fetch("/api/users", {
-            headers: {
-              Authorization: `Bearer ${await currentUser.getIdToken()}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           });
-          if (!userRes.ok) {
-            const errorText = await userRes.text();
-            throw new Error(`Failed to fetch user data: ${errorText}`);
-          }
+          if (!userRes.ok) throw new Error("Failed to fetch user data");
           const userData = await userRes.json();
           setMongoUserId(userData._id);
 
@@ -66,165 +65,169 @@ export default function BookingPage() {
             fetch("/api/settings"),
           ]);
 
-          if (!coachRes.ok)
-            throw new Error(
-              `Failed to fetch coaches: ${
-                coachRes.status
-              } ${await coachRes.text()}`
-            );
-          if (!bookingsRes.ok)
-            throw new Error(
-              `Failed to fetch bookings: ${
-                bookingsRes.status
-              } ${await bookingsRes.text()}`
-            );
-          if (!settingsRes.ok)
-            throw new Error(
-              `Failed to fetch settings: ${
-                settingsRes.status
-              } ${await settingsRes.text()}`
-            );
+          if (!coachRes.ok) {
+            const errorData = await coachRes.json();
+            throw new Error(`Failed to fetch coaches: ${errorData.error}`);
+          }
+          if (!bookingsRes.ok) throw new Error("Failed to fetch bookings");
+          if (!settingsRes.ok) throw new Error("Failed to fetch settings");
 
           const coachData = await coachRes.json();
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
 
-          setCoaches(coachData);
+          console.log("Fetched coaches:", coachData);
+          setCoaches(Array.isArray(coachData) ? coachData : []);
           setBookings(bookingsData.bookings || []);
           setSettings(settingsData);
+
+          const success = searchParams.get("success");
+          const bookingIds = searchParams.get("bookingIds");
+          if (success === "true" && bookingIds) {
+            const ids = JSON.parse(decodeURIComponent(bookingIds));
+            console.log("Verifying payments:", ids);
+            await verifyPayments(ids);
+            router.replace("/players/booking");
+          }
         } catch (err) {
           console.error("BookingPage fetch error:", err.message);
           setError(err.message);
         }
+      } else {
+        setError("Please log in to access booking.");
       }
       setLoading(false);
+      console.log("BookingPage useEffect completed, loading set to false");
     });
-    return () => unsubscribe();
-  }, [confirmBookings, router, searchParams]);
+    return () => {
+      console.log("Cleaning up BookingPage useEffect");
+      unsubscribe();
+    };
+  }, [searchParams, router, verifyPayments]);
 
   const handleLogout = async () => {
     await signOut(auth);
   };
 
+  const formatTimeTo12HourCDT = (time) => {
+    if (!time) return "";
+    const date = new Date(time);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "America/Chicago",
+    });
+  };
+
   const generateHourlySlots = useCallback((startTime, endTime, day, date) => {
+    console.log("Generating slots:", { startTime, endTime, day, date });
     const start = parseInt(startTime.split(":")[0], 10);
     const end = parseInt(endTime.split(":")[0], 10);
+    if (isNaN(start) || isNaN(end)) {
+      console.error("Invalid time format:", { startTime, endTime });
+      return [];
+    }
     const slots = [];
     for (let hour = start; hour < end; hour++) {
+      const slotStart = `${hour.toString().padStart(2, "0")}:00`;
+      const slotEnd = `${(hour + 1).toString().padStart(2, "0")}:00`;
       const slotDate = new Date(date);
       slotDate.setHours(hour, 0, 0, 0);
       slots.push({
         day,
-        startTime: `${hour.toString().padStart(2, "0")}:00`,
-        endTime: `${(hour + 1).toString().padStart(2, "0")}:00`,
+        startTime: slotStart,
+        endTime: slotEnd,
         date: slotDate,
       });
     }
-    console.log(
-      `Generated ${slots.length} slots for ${day} on ${date.toDateString()}`
-    );
     return slots;
   }, []);
 
   const getAvailableSlotsForDay = useCallback(
     (date) => {
-      if (!selectedCoach) {
-        console.log("No coach selected, returning empty slots");
-        return [];
-      }
+      if (!selectedCoach) return [];
       const coach = coaches.find((c) => c._id === selectedCoach) || {
         availability: [],
+        userId: null,
       };
       const availability = Array.isArray(coach.availability)
         ? coach.availability
         : [];
       const dayName = date.toLocaleString("en-US", { weekday: "long" });
-      const daySlots = availability.find((a) => a.day === dayName);
-      if (!daySlots) {
-        console.log(
-          `No availability for ${dayName} for coach ${selectedCoach}`
-        );
-        return [];
-      }
+      const dayAvailability = availability.find(
+        (avail) => avail.day === dayName
+      );
+      if (!dayAvailability) return [];
 
       const allSlots = generateHourlySlots(
-        daySlots.startTime,
-        daySlots.endTime,
+        dayAvailability.startTime,
+        dayAvailability.endTime,
         dayName,
         date
       );
-      const availableSlots = allSlots.filter((slot) => {
-        return !bookings.some((b) => {
+      console.log("Generated slots:", allSlots);
+
+      return allSlots.filter((slot) => {
+        return !bookings.some((booking) => {
           const sameCoach =
-            b.coachId === (coach.userId || null) ||
-            (!b.coachId && selectedCoach === "no-coach");
-          const bookingStart = new Date(b.startTime);
-          const bookingEnd = new Date(b.endTime);
+            booking.coachId === coach.userId ||
+            (!booking.coachId && selectedCoach === "no-coach");
+          const bookingStart = new Date(booking.startTime);
+          const bookingEnd = new Date(booking.endTime);
           const slotStart = new Date(slot.date);
+          slotStart.setHours(parseInt(slot.startTime.split(":")[0]), 0, 0, 0);
           const slotEnd = new Date(slot.date);
-          slotEnd.setHours(slotEnd.getHours() + 1);
+          slotEnd.setHours(parseInt(slot.endTime.split(":")[0]), 0, 0, 0);
           const timeOverlap =
             (bookingStart <= slotStart && slotStart < bookingEnd) ||
             (bookingStart < slotEnd && slotEnd <= bookingEnd) ||
             (slotStart <= bookingStart && bookingEnd <= slotEnd);
-          return sameCoach && timeOverlap;
+          const isPendingOrConfirmed = ["pending", "confirmed"].includes(
+            booking.status
+          );
+          return sameCoach && timeOverlap && isPendingOrConfirmed;
         });
       });
-      console.log(
-        `Available slots for ${dayName} on ${date.toDateString()}: ${
-          availableSlots.length
-        }`
-      );
-      return availableSlots;
     },
-    [coaches, bookings, selectedCoach, generateHourlySlots]
+    [coaches, selectedCoach, bookings, generateHourlySlots]
   );
 
   const tileContent = useCallback(
     ({ date, view }) => {
-      if (view !== "month" || !selectedCoach) return null;
-      const slots = getAvailableSlotsForDay(date);
-      return slots.length ? (
-        <span className="text-xs text-green-500">{slots.length} slots</span>
+      if (view !== "month") return null;
+      const availableSlots = getAvailableSlotsForDay(date);
+      return availableSlots.length > 0 ? (
+        <div className="text-xs text-green-600">
+          {availableSlots.length} slots
+        </div>
       ) : null;
     },
-    [getAvailableSlotsForDay, selectedCoach]
+    [getAvailableSlotsForDay]
   );
 
   const handleDateClick = useCallback(
     (date) => {
-      if (!selectedCoach) {
-        console.log("No coach selected, cannot select date");
-        return;
+      const availableSlots = getAvailableSlotsForDay(date);
+      if (availableSlots.length > 0) {
+        setCurrentDay(date);
+        setSelectedDaySlots(
+          availableSlots.map((slot) => ({
+            ...slot,
+            isSelected: selectedSlots.some(
+              (s) =>
+                s.date.toISOString() === slot.date.toISOString() &&
+                s.startTime === slot.startTime
+            ),
+          }))
+        );
+        setSlotModalOpen(true);
       }
-      const available = getAvailableSlotsForDay(date);
-      console.log(
-        `Handle date click: ${date.toDateString()}, available slots: ${
-          available.length
-        }`
-      );
-      if (!available.length) return;
-
-      setCurrentDay(date);
-      setSelectedDaySlots(
-        available.map((slot) => ({
-          ...slot,
-          isSelected: selectedSlots.some(
-            (s) =>
-              s.date.toISOString() === slot.date.toISOString() &&
-              s.startTime === slot.startTime
-          ),
-        }))
-      );
-      setSlotModalOpen(true);
     },
     [getAvailableSlotsForDay, selectedSlots]
   );
 
   const handleSlotToggle = (slot) => {
-    console.log(
-      `Toggling slot: ${slot.startTime} on ${slot.date.toDateString()}`
-    );
     setSelectedDaySlots((prev) =>
       prev.map((s) =>
         s.startTime === slot.startTime &&
@@ -236,87 +239,94 @@ export default function BookingPage() {
   };
 
   const confirmSlotSelection = () => {
-    const newSelected = selectedDaySlots.filter((s) => s.isSelected);
-    console.log(
-      `Confirming ${
-        newSelected.length
-      } selected slots for ${currentDay.toDateString()}`
-    );
+    const newSelectedSlots = selectedDaySlots.filter((s) => s.isSelected);
     setSelectedSlots((prev) => [
       ...prev.filter(
         (s) => s.date.toDateString() !== currentDay.toDateString()
       ),
-      ...newSelected,
+      ...newSelectedSlots,
     ]);
     setSlotModalOpen(false);
   };
 
   const handleBookingConfirm = async () => {
-    if (!mongoUserId || !selectedSlots.length) {
-      const errMsg = !mongoUserId
-        ? "User ID not available"
-        : "No slots selected";
-      console.error(errMsg);
-      setError(errMsg);
-      return;
-    }
+    if (!user || selectedSlots.length === 0) return;
     try {
-      console.log(
-        `Submitting ${selectedSlots.length} bookings for userId: ${mongoUserId}`
-      );
+      const sortedSlots = [...selectedSlots].sort((a, b) => a.date - b.date);
+      const mergedBookings = [];
+      let currentBooking = {
+        ...sortedSlots[0],
+        endTime: sortedSlots[0].endTime,
+      };
+
+      for (let i = 1; i < sortedSlots.length; i++) {
+        const prevEnd = new Date(currentBooking.date);
+        prevEnd.setHours(
+          parseInt(currentBooking.endTime.split(":")[0]),
+          0,
+          0,
+          0
+        );
+        const nextStart = new Date(sortedSlots[i].date);
+        nextStart.setHours(
+          parseInt(sortedSlots[i].startTime.split(":")[0]),
+          0,
+          0,
+          0
+        );
+
+        if (
+          prevEnd.getTime() === nextStart.getTime() &&
+          currentBooking.day === sortedSlots[i].day
+        ) {
+          currentBooking.endTime = sortedSlots[i].endTime;
+        } else {
+          mergedBookings.push({ ...currentBooking });
+          currentBooking = {
+            ...sortedSlots[i],
+            endTime: sortedSlots[i].endTime,
+          };
+        }
+      }
+      mergedBookings.push({ ...currentBooking });
+
       const coach = coaches.find((c) => c._id === selectedCoach);
-      const coachId =
-        coach && coach.userId && selectedCoach !== "no-coach"
-          ? coach.userId
-          : null;
-
-      const bookingPayloads = selectedSlots.map((slot) => {
-        const end = new Date(slot.date);
-        end.setHours(parseInt(slot.endTime.split(":")[0]), 0, 0, 0);
-
-        return {
+      const bookingPromises = mergedBookings.map((slot) => {
+        const endTime = new Date(slot.date);
+        endTime.setHours(parseInt(slot.endTime.split(":")[0]), 0, 0, 0);
+        const bookingData = {
           playerId: mongoUserId,
-          coachId: coachId,
+          coachId: selectedCoach === "no-coach" ? null : coach?.userId,
           day: slot.day,
           startTime: slot.date.toISOString(),
-          endTime: end.toISOString(),
+          endTime: endTime.toISOString(),
           ballMachine,
+          status: "pending",
           totalCost: calculateCostBreakdown({
             slots: [slot],
-            coach: coach,
+            coach,
             settings,
             ballMachine,
           }).total,
           createdAt: new Date().toISOString(),
         };
+        console.log("Submitting booking:", bookingData);
+        return fetch("/api/booking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bookingData),
+        });
       });
 
-      console.log("Booking payloads:", bookingPayloads);
-
-      const responses = await Promise.all(
-        bookingPayloads.map((payload) =>
-          fetch("/api/booking", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          })
-        )
-      );
-
-      const ids = [];
+      const responses = await Promise.all(bookingPromises);
+      const bookingIds = [];
       for (const res of responses) {
-        const errorText = !res.ok ? await res.text() : null;
-        if (!res.ok) {
-          console.error("Booking failed:", errorText);
-          throw new Error(`Booking failed: ${errorText}`);
-        }
+        if (!res.ok) throw new Error("Failed to save booking");
         const data = await res.json();
-        ids.push(data.id);
+        bookingIds.push(data.id);
       }
-
-      console.log("Bookings saved, IDs:", ids);
-      setPendingBookingIds(ids);
       setModalOpen(false);
+      setPendingBookingIds(bookingIds);
       setPaymentModalOpen(true);
     } catch (err) {
       console.error("Booking confirm error:", err.message);
@@ -325,137 +335,138 @@ export default function BookingPage() {
   };
 
   const handlePaymentConfirm = async () => {
-    if (!user || !mongoUserId) {
-      console.error("User or MongoDB userId not available for payment");
-      setError("Please log in to complete payment");
-      return;
-    }
+    if (!pendingBookingIds.length) return;
     try {
-      const coach = coaches.find((c) => c._id === selectedCoach);
-      const totalCost = calculateCostBreakdown({
+      const costBreakdown = calculateCostBreakdown({
         slots: selectedSlots,
-        coach: coach,
+        coach: coaches.find((c) => c._id === selectedCoach),
         settings,
         ballMachine,
-      }).total;
-      if (totalCost <= 0 || !pendingBookingIds.length) {
-        console.error("Invalid payment parameters:", {
-          totalCost,
-          pendingBookingIds,
-        });
-        throw new Error("Invalid payment amount or booking IDs");
-      }
-      console.log(
-        `Initiating payment for ${pendingBookingIds.length} bookings, total: $${totalCost}, userId: ${mongoUserId}`
-      );
-      // Store totalCost for webhook
-      localStorage.setItem("totalCost", totalCost.toString());
+      });
+      console.log("Initiating payment with:", {
+        bookingIds: pendingBookingIds,
+        amount: costBreakdown.total,
+        description: `Payment for ${selectedSlots.length} bookings`,
+        userId: mongoUserId,
+      });
       await initiatePayment(
         pendingBookingIds,
-        totalCost,
-        `Booking for ${selectedSlots.length} slots`,
-        mongoUserId // Use MongoDB _id
+        costBreakdown.total,
+        `Payment for ${selectedSlots.length} bookings`,
+        mongoUserId
       );
     } catch (err) {
       console.error("Payment confirm error:", err.message);
       setPaymentModalOpen(false);
-      setError(err.message);
     }
   };
 
-  const cost = calculateCostBreakdown({
-    slots: selectedSlots,
-    coach: coaches.find((c) => c._id === selectedCoach),
-    settings,
-    ballMachine,
-  });
-
-  if (loading) return <div className="p-6 text-center">Loading...</div>;
+  if (loading) return <div className="text-center p-6">Loading...</div>;
   if (!user)
-    return <div className="p-6 text-center">Please log in to book.</div>;
+    return <div className="text-center p-6">Please log in to book.</div>;
   if (error)
-    return <div className="p-6 text-red-600 text-center">Error: {error}</div>;
+    return <div className="text-center p-6 text-red-500">Error: {error}</div>;
 
   return (
-    <PageContainer title="Booking Page">
-      <form className="bg-swamp-200 p-6 rounded-lg shadow max-w-3xl mx-auto space-y-6">
-        <div>
-          <label className="block font-medium mb-1">Select Coach</label>
-          <select
-            value={selectedCoach}
-            onChange={(e) => {
-              setSelectedCoach(e.target.value);
-              setSelectedSlots([]);
-              console.log("Selected coach:", e.target.value);
-            }}
-            className="w-full border p-2 rounded"
-          >
-            <option value="">-- Choose Coach --</option>
-            <option value="no-coach">No Coach</option>
-            {coaches.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {selectedCoach && (
-          <div className="flex justify-center">
-            <Calendar
-              onChange={setCalendarDate}
-              value={calendarDate}
-              tileContent={tileContent}
-              onClickDay={handleDateClick}
-            />
-          </div>
-        )}
-
-        <div>
-          <h3 className="font-medium">Selected Slots:</h3>
-          {selectedSlots.length > 0 ? (
-            <ul className="list-disc pl-5">
-              {selectedSlots.map((slot, index) => (
-                <li key={index}>
-                  {slot.day} {slot.date.toLocaleDateString()} {slot.startTime} -{" "}
-                  {slot.endTime}
-                </li>
+    <main className="min-h-screen p-6">
+      <h1 className="text-3xl font-bold text-primary-700 mb-6 text-center">
+        Booking Page
+      </h1>
+      <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
+        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+          <div>
+            <label
+              htmlFor="coach"
+              className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
+            >
+              Select Coach
+            </label>
+            <select
+              id="coach"
+              value={selectedCoach}
+              onChange={(e) => {
+                setSelectedCoach(e.target.value);
+                setSelectedSlots([]);
+              }}
+              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Choose a coach</option>
+              <option value="no-coach">No Coach</option>
+              {coaches.map((coach) => (
+                <option key={coach._id} value={coach._id}>
+                  {coach.name}
+                </option>
               ))}
-            </ul>
-          ) : (
-            <p className="text-gray-600">No slots selected.</p>
+            </select>
+          </div>
+          {selectedCoach && (
+            <div>
+              <h2 className="text-lg font-semibold text-primary-600 mb-2">
+                Select Dates (Central Time)
+              </h2>
+              <Calendar
+                onChange={setCalendarDate}
+                value={calendarDate}
+                tileContent={tileContent}
+                onClickDay={handleDateClick}
+                className="mx-auto"
+              />
+              <div className="mt-4">
+                <h3 className="text-md font-medium text-neutrals-700 dark:text-neutrals-300">
+                  Selected Slots:
+                </h3>
+                {selectedSlots.length > 0 ? (
+                  <ul className="list-disc pl-5">
+                    {selectedSlots.map((slot, index) => (
+                      <li key={index}>
+                        {slot.day} {slot.date.toLocaleDateString()}{" "}
+                        {formatTimeTo12HourCDT(slot.date)} -{" "}
+                        {formatTimeTo12HourCDT(
+                          new Date(slot.date).setHours(slot.date.getHours() + 1)
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-neutrals-600 dark:text-neutrals-300">
+                    No slots selected.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
-        </div>
-
-        <div className="flex justify-between items-center mt-4">
-          <label className="flex items-center">
+          <div className="flex items-center">
             <input
               type="checkbox"
+              id="ballMachine"
               checked={ballMachine}
-              onChange={() => {
-                setBallMachine(!ballMachine);
-                console.log("Ball machine toggled:", !ballMachine);
-              }}
+              onChange={(e) => setBallMachine(e.target.checked)}
               className="mr-2"
             />
-            Rent Ball Machine
-          </label>
+            <label
+              htmlFor="ballMachine"
+              className="text-sm font-medium text-neutrals-700 dark:text-neutrals-300"
+            >
+              Rent Ball Machine
+            </label>
+          </div>
           <button
             type="button"
-            onClick={() => {
-              console.log(
-                "Opening confirmation modal, selected slots:",
-                selectedSlots.length
-              );
-              setModalOpen(true);
-            }}
-            disabled={!selectedSlots.length}
-            className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
+            onClick={() => setModalOpen(true)}
+            disabled={selectedSlots.length === 0}
+            className="w-full px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition-colors shadow-md disabled:bg-gray-400"
           >
             Book Selected Slots
           </button>
-        </div>
-      </form>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full px-6 py-3 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 transition-colors shadow-md"
+          >
+            Logout
+          </button>
+        </form>
+      </div>
 
       <BookingModals
         modalOpen={modalOpen}
@@ -478,6 +489,6 @@ export default function BookingPage() {
         paymentError={paymentError}
         isProcessing={isProcessing}
       />
-    </PageContainer>
+    </main>
   );
 }
