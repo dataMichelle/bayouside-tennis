@@ -13,7 +13,14 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("UserContext - Setting up auth listener");
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log(
+        "UserContext - Auth state changed:",
+        firebaseUser
+          ? { uid: firebaseUser.uid, email: firebaseUser.email }
+          : "none"
+      );
       setFirebaseUser(firebaseUser);
 
       if (firebaseUser) {
@@ -29,8 +36,16 @@ export const UserProvider = ({ children }) => {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!res.ok) {
-            console.error("UserContext - API response:", await res.text());
-            throw new Error(`API error: ${res.status}`);
+            const errorText = await res.text();
+            console.error(
+              "UserContext - API response error:",
+              errorText,
+              "Status:",
+              res.status
+            );
+            throw new Error(
+              `Failed to fetch user data: ${res.status} ${errorText}`
+            );
           }
           const data = await res.json();
           console.log("UserContext - User data fetched:", {
@@ -39,7 +54,7 @@ export const UserProvider = ({ children }) => {
           });
 
           setUserData({
-            id: data._id, // MongoDB _id
+            id: data._id, // MongoDB _id, e.g., "67fff934f37c72f8de61ee83"
             email: firebaseUser.email,
             role: data.role || "player",
           });
@@ -52,15 +67,27 @@ export const UserProvider = ({ children }) => {
           localStorage.setItem("userRole", "player");
         }
       } else {
+        console.log(
+          "UserContext - No user logged in, clearing userData and role"
+        );
         setUserData(null);
         setRole(null);
         localStorage.removeItem("userRole");
       }
 
       setLoading(false);
+      console.log("UserContext - Loading complete:", {
+        loading: false,
+        firebaseUser,
+        userData,
+        role,
+      });
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log("UserContext - Cleaning up auth listener");
+      unsubscribe();
+    };
   }, []);
 
   return (

@@ -1,5 +1,3 @@
-// app/dashboard/coach/schedule/page.jsx
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -8,6 +6,8 @@ import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { format, toDate } from "date-fns";
+import { utcToZonedTime } from "date-fns-tz";
 
 export default function CoachSchedulePage() {
   const [events, setEvents] = useState([]);
@@ -49,19 +49,31 @@ export default function CoachSchedulePage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to fetch schedule");
 
-        const formatted = data.bookings.map((booking) => ({
-          id: booking._id,
-          title: booking.coachId
-            ? `Coaching: ${booking.playerName || "Unknown"}`
-            : "Court Booking",
-          start: booking.startTime,
-          end: booking.endTime,
-          backgroundColor: booking.coachId ? "green" : "blue",
-          borderColor: booking.coachId ? "green" : "blue",
-        }));
+        const formatted = data.bookings.map((booking) => {
+          console.log("Formatting booking:", {
+            _id: booking._id,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+          });
+          return {
+            id: booking._id,
+            title: booking.coachId
+              ? `Coaching: ${booking.playerName || "Unknown"}`
+              : "Court Booking",
+            start: booking.startTime, // ISO string in UTC
+            end: booking.endTime, // ISO string in UTC
+            backgroundColor: booking.coachId ? "green" : "blue",
+            borderColor: booking.coachId ? "green" : "blue",
+          };
+        });
 
+        console.log("Formatted events for FullCalendar:", formatted);
         setEvents(formatted);
       } catch (err) {
+        console.error(
+          "CoachSchedulePage - Error fetching schedule:",
+          err.message
+        );
         setError(err.message);
       } finally {
         setLoading(false);
@@ -79,14 +91,21 @@ export default function CoachSchedulePage() {
       });
       const data = await response.json();
       if (response.ok) {
+        console.log("Booking details fetched:", data);
         setSelectedBooking(data);
       } else {
         throw new Error(data.error || "Failed to fetch booking");
       }
     } catch (err) {
-      console.error("Event click error:", err);
+      console.error("CoachSchedulePage - Event click error:", err.message);
     }
   }, []);
+
+  const formatDateTimeToCDT = (utcDate) => {
+    if (!utcDate) return "";
+    const zonedDate = utcToZonedTime(toDate(utcDate), "America/Chicago");
+    return format(zonedDate, "M/d/yyyy h:mm a"); // e.g., "4/22/2025 3:00 PM"
+  };
 
   return (
     <main className="p-6">
@@ -110,6 +129,11 @@ export default function CoachSchedulePage() {
             right: "timeGridWeek,timeGridDay",
           }}
           eventClick={handleEventClick}
+          eventTimeFormat={{
+            hour: "numeric",
+            minute: "2-digit",
+            meridiem: "short",
+          }}
         />
       )}
 
@@ -121,11 +145,10 @@ export default function CoachSchedulePage() {
           </p>
           <p>
             <strong>Start:</strong>{" "}
-            {new Date(selectedBooking.startTime).toLocaleString()}
+            {formatDateTimeToCDT(selectedBooking.startTime)}
           </p>
           <p>
-            <strong>End:</strong>{" "}
-            {new Date(selectedBooking.endTime).toLocaleString()}
+            <strong>End:</strong> {formatDateTimeToCDT(selectedBooking.endTime)}
           </p>
           <p>
             <strong>Status:</strong> {selectedBooking.status}
