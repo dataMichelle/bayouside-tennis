@@ -2,6 +2,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import "@/styles/globals.css"; // Import global styles
 
 export default function BodyWrapper({ children }) {
   const pathname = usePathname();

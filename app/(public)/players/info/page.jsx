@@ -1,13 +1,48 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function Players() {
+  const [settings, setSettings] = useState({
+    ballMachineCost: 10, // Default to 10 until fetched
+    courtRentalCost: 20, // Default to 20 until fetched
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/player/info", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setSettings({
+            ballMachineCost: data.ballMachineCost,
+            courtRentalCost: data.courtRentalCost,
+          });
+        } else {
+          throw new Error(data.error || "Failed to fetch settings data");
+        }
+      } catch (err) {
+        setError(err.message);
+        console.error("Fetch error:", err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
   return (
     <main className="p-6">
-      <h1 className="text-3xl font-bold  mb-6 text-center">
+      <h1 className="text-3xl font-bold mb-6 text-center">
         Player Information
       </h1>
-      <div className="bg-swamp-200  dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
+      <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
         <section className="space-y-8">
           {/* Rules of Conduct */}
           <div>
@@ -15,15 +50,29 @@ export default function Players() {
               Rules of Conduct
             </h2>
             <p className="text-neutrals-700 dark:text-neutrals-300 mb-2">
-              All players must adhere to our court etiquette and safety
-              guidelines. For full details:
+              All players must adhere to the following court etiquette and
+              safety guidelines:
             </p>
-            <Link
-              href="/players/rules-of-conduct"
-              className="text-black font-medium hover:text-gray-700 transition-colors underline"
-            >
-              View Rules of Conduct
-            </Link>
+            <ul className="text-neutrals-700 dark:text-neutrals-300 list-disc list-inside">
+              <li>
+                Arrive 10 minutes early to check in and prepare for your
+                session.
+              </li>
+              <li>
+                Wear proper tennis shoes with non-marking soles to protect the
+                court.
+              </li>
+              <li>
+                Respect court time limits and vacate promptly when your session
+                ends.
+              </li>
+              <li>
+                Cancel bookings at least 24 hours in advance to avoid fees.
+              </li>
+              <li>
+                Maintain sportsmanship; avoid disruptive behavior during play.
+              </li>
+            </ul>
           </div>
 
           {/* Ball Machine Rental */}
@@ -33,13 +82,31 @@ export default function Players() {
             </h2>
             <p className="text-neutrals-700 dark:text-neutrals-300 mb-2">
               A ball machine is available for rental to enhance your practice
-              sessions. Cost: $10/hr. Contact the front desk to reserve.
+              sessions. Cost: ${settings.ballMachineCost}/hr. Contact the front
+              desk to reserve.
             </p>
             <Link
               href="/booking"
               className="text-black font-medium hover:text-gray-700 transition-colors underline"
             >
               Book a Court with Ball Machine
+            </Link>
+          </div>
+
+          {/* Court Rental Cost */}
+          <div>
+            <h2 className="text-2xl font-semibold text-primary-600 dark:text-primary-300 mb-4">
+              Court Rental Cost
+            </h2>
+            <p className="text-neutrals-700 dark:text-neutrals-300 mb-2">
+              Reserve a court for your practice or match. Cost: $
+              {settings.courtRentalCost}/hr. Book online to secure your time.
+            </p>
+            <Link
+              href="/booking"
+              className="text-black font-medium hover:text-gray-700 transition-colors underline"
+            >
+              Book a Court Now
             </Link>
           </div>
 
@@ -69,22 +136,6 @@ export default function Players() {
               className="text-black font-medium hover:text-gray-700 transition-colors underline"
             >
               Book a Court Now
-            </Link>
-          </div>
-
-          {/* Contact Us */}
-          <div>
-            <h2 className="text-2xl font-semibold text-primary-600 dark:text-primary-300 mb-4">
-              Contact Us
-            </h2>
-            <p className="text-neutrals-700 dark:text-neutrals-300 mb-2">
-              Questions? Reach out to our staff for assistance.
-            </p>
-            <Link
-              href="/contact"
-              className="text-black font-medium hover:text-gray-700 transition-colors underline"
-            >
-              Contact Information
             </Link>
           </div>
         </section>

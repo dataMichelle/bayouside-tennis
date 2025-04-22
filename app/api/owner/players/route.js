@@ -261,18 +261,47 @@ export async function GET() {
             email: 1,
             phone: 1,
             bookingCount: {
-              $size: {
-                $filter: {
-                  input: "$bookings",
-                  as: "booking",
-                  cond: {
-                    $in: ["$$booking.status", ["confirmed", "completed"]], // Placeholder
+              $cond: [
+                { $gt: [{ $size: "$bookings" }, 0] },
+                {
+                  $size: {
+                    $filter: {
+                      input: "$bookings",
+                      as: "booking",
+                      cond: {
+                        $in: ["$$booking.status", ["confirmed", "completed"]], // Placeholder
+                      },
+                    },
                   },
                 },
-              },
+                "", // Return empty string for no bookings
+              ],
             },
-            totalPaid: 1,
-            lastBooking: { $max: "$bookings.startTime" },
+            totalPaid: {
+              $cond: [
+                { $gt: [{ $size: "$bookings" }, 0] },
+                "$totalPaid",
+                "", // Return empty string for no bookings
+              ],
+            },
+            lastBooking: {
+              $cond: [
+                {
+                  $and: [
+                    { $gt: [{ $size: "$bookings" }, 0] },
+                    { $ifNull: [{ $max: "$bookings.startTime" }, false] },
+                  ],
+                },
+                {
+                  $dateToString: {
+                    format: "%Y-%m-%d %H:%M",
+                    date: { $max: "$bookings.startTime" },
+                    timezone: "America/Chicago",
+                  },
+                },
+                "", // Return empty string for no bookings or invalid dates
+              ],
+            },
             bookingsDebug: 1, // For debugging
           },
         },
@@ -281,23 +310,42 @@ export async function GET() {
 
     // Format lastBooking to 12-hour format
     const formattedPlayers = players.map((player) => {
-      let formattedLastBooking = "-";
-      if (player.lastBooking && !isNaN(new Date(player.lastBooking))) {
-        const date = new Date(player.lastBooking);
-        formattedLastBooking = date.toLocaleString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "numeric",
-          minute: "numeric",
-          hour12: true,
-          timeZone: "America/Chicago",
-        });
+      let formattedLastBooking = player.lastBooking;
+      let debugInfo = {
+        lastBookingRaw: player.lastBooking,
+        startTimes: player.bookings
+          ? player.bookings.map((b) => b.startTime)
+          : [],
+      };
+
+      if (player.lastBooking !== "") {
+        try {
+          const [date, time] = player.lastBooking.split(" ");
+          const dateObj = new Date(`${date}T${time}:00-05:00`); // America/Chicago (UTC-5)
+          if (!isNaN(dateObj.getTime())) {
+            formattedLastBooking = dateObj.toLocaleString("en-US", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "numeric",
+              minute: "numeric",
+              hour12: true,
+              timeZone: "America/Chicago",
+            });
+          } else {
+            formattedLastBooking = "";
+            debugInfo.error = "Invalid date object";
+          }
+        } catch (e) {
+          formattedLastBooking = "";
+          debugInfo.error = e.message;
+        }
       }
 
       return {
         ...player,
         lastBooking: formattedLastBooking,
+        lastBookingDebug: debugInfo,
       };
     });
 

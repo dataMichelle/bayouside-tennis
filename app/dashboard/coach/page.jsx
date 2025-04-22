@@ -1,16 +1,16 @@
-// app/dashboard/coach/page.jsx
-
 "use client";
 
 import { useEffect, useState } from "react";
 import DashboardHeader from "@/components/DashboardHeader";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import Link from "next/link";
 
 export default function CoachDashboard() {
   const [coachName, setCoachName] = useState("");
   const [fee, setFee] = useState("");
+  const [bookings, setBookings] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [totalIncome, setTotalIncome] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -23,7 +23,7 @@ export default function CoachDashboard() {
       }
 
       try {
-        const res = await fetch("/api/coach/fee", {
+        const res = await fetch("/api/coach", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ coachId: user.uid }),
@@ -32,8 +32,17 @@ export default function CoachDashboard() {
         if (res.ok) {
           setCoachName(data.name);
           setFee(data.rate);
+          setBookings(data.bookings || []);
+          setPayments((data.payments || []).slice(0, 5));
+          const income = data.payments
+            ? data.payments.reduce(
+                (sum, payment) => sum + (payment.coachFee || 0),
+                0
+              )
+            : 0;
+          setTotalIncome(income);
         } else {
-          throw new Error(data.error || "Failed to fetch coach info");
+          throw new Error(data.error || "Failed to fetch coach data");
         }
       } catch (err) {
         setError(err.message);
@@ -45,6 +54,22 @@ export default function CoachDashboard() {
     return () => unsubscribe();
   }, []);
 
+  const formatDate = (date) => {
+    if (!date) return "-";
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      timeZone: "America/Chicago",
+    });
+  };
+
+  const formatUSD = (amount) => {
+    if (!amount && amount !== 0) return "-";
+    return `$${amount.toFixed(2)}`;
+  };
+
   if (loading)
     return <div className="p-6 text-gray-600">Loading dashboard...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
@@ -53,55 +78,93 @@ export default function CoachDashboard() {
     <main className="p-6">
       <DashboardHeader title={`Welcome, ${coachName || "Coach"}`} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-6">
-        <Card
-          title="My Schedule"
-          description="View your upcoming sessions and court bookings."
-          href="/dashboard/coach/schedule"
-          color="blue"
-        />
-
-        <Card
-          title="My Players"
-          description="See your current students and their contact info."
-          href="/dashboard/coach/players"
-          color="green"
-        />
-
-        <Card
-          title="Payments"
-          description="Track earnings from coaching sessions."
-          href="/dashboard/coach/payments"
-          color="gray"
-        />
+      {/* Total Income and Current Hourly Rate */}
+      <div className="max-w-4xl mx-auto mt-6 flex space-x-4">
+        <div className="bg-swamp-200 p-4 rounded-lg shadow-md flex-1">
+          <h3 className="text-lg font-semibold text-gray-800">Total Income</h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatUSD(totalIncome)}
+          </p>
+        </div>
+        <div className="bg-swamp-200 p-4 rounded-lg shadow-md flex-1">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Current Hourly Rate
+          </h3>
+          <p className="text-2xl font-bold text-gray-900">${fee}/hr</p>
+        </div>
       </div>
 
-      <div className="mt-10 max-w-2xl mx-auto text-center">
-        <p className="text-sm text-gray-500">
-          Current Hourly Rate: <span className="font-semibold">${fee}/hr</span>
-        </p>
-      </div>
+      {/* Upcoming Reservation Schedule */}
+      <section className="max-w-4xl mx-auto mt-6">
+        <h2 className="text-xl font-semibold text-primary-600 mb-4">
+          Upcoming Reservations
+        </h2>
+        {bookings.length === 0 ? (
+          <p className="text-gray-600 text-center">
+            No upcoming bookings found.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse bg-white shadow-md rounded-lg">
+              <thead className="bg-gray-200 text-gray-700">
+                <tr>
+                  <th className="border p-3 text-left">Date</th>
+                  <th className="border p-3 text-left">Time</th>
+                  <th className="border p-3 text-left">Player</th>
+                  <th className="border p-3 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookings.map((booking) => (
+                  <tr key={booking._id} className="border-b hover:bg-gray-50">
+                    <td className="p-3">{formatDate(booking.startTime)}</td>
+                    <td className="p-3">{booking.bookingTime || "-"}</td>
+                    <td className="p-3">{booking.playerName || "Unknown"}</td>
+                    <td className="p-3">{booking.status || "N/A"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Latest Payments */}
+      <section className="max-w-4xl mx-auto mt-8">
+        <h2 className="text-xl font-semibold text-primary-600 mb-4">
+          Latest Payments
+        </h2>
+        {payments.length === 0 ? (
+          <p className="text-gray-600 text-center">No recent payments found.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse bg-white shadow-md rounded-lg">
+              <thead className="bg-gray-200 text-gray-700">
+                <tr>
+                  <th className="border p-3 text-left">Player Name</th>
+                  <th className="border p-3 text-left">Total Amount</th>
+                  <th className="border p-3 text-left">Coach Fee</th>
+                  <th className="border p-3 text-left">Status</th>
+                  <th className="border p-3 text-left">Date</th>
+                  <th className="border p-3 text-left">Booking Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((payment) => (
+                  <tr key={payment._id} className="border-b hover:bg-gray-50">
+                    <td className="p-3">{payment.playerName || "Unknown"}</td>
+                    <td className="p-3">{formatUSD(payment.amount)}</td>
+                    <td className="p-3">{formatUSD(payment.coachFee)}</td>
+                    <td className="p-3">{payment.status || "N/A"}</td>
+                    <td className="p-3">{formatDate(payment.createdAt)}</td>
+                    <td className="p-3">{payment.bookingTime || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </main>
-  );
-}
-
-function Card({ title, description, href, color }) {
-  const colorMap = {
-    blue: "bg-blue-600 hover:bg-blue-700",
-    green: "bg-green-600 hover:bg-green-700",
-    gray: "bg-gray-700 hover:bg-gray-800",
-  };
-
-  return (
-    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
-      <h3 className="text-lg font-semibold mb-2 text-gray-800">{title}</h3>
-      <p className="text-sm text-gray-600 mb-4">{description}</p>
-      <Link
-        href={href}
-        className={`inline-block px-5 py-2 text-sm font-medium text-white rounded ${colorMap[color]}`}
-      >
-        Go to {title}
-      </Link>
-    </div>
   );
 }
