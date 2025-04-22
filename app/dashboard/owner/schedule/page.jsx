@@ -14,7 +14,6 @@ export default function OwnerSchedulePage() {
   useEffect(() => {
     const fetchSchedule = async () => {
       try {
-   
         const res = await fetch("/api/owner/schedule");
         if (!res.ok) throw new Error("Failed to load schedule");
         const data = await res.json();
@@ -31,7 +30,7 @@ export default function OwnerSchedulePage() {
             "America/Chicago",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
           ); // e.g., "2025-04-22T16:00:00-05:00"
-      
+
           return {
             ...event,
             start: startCDT,
@@ -39,7 +38,6 @@ export default function OwnerSchedulePage() {
           };
         });
 
-     
         setEvents(formattedEvents);
       } catch (err) {
         console.error(
@@ -60,7 +58,7 @@ export default function OwnerSchedulePage() {
 
   return (
     <main className="p-6">
-      <DashboardHeader title="Court Schedule" />
+      <DashboardHeader />
       <FullCalendar
         plugins={[timeGridPlugin]}
         initialView="timeGridWeek"

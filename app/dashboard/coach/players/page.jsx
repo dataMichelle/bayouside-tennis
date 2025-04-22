@@ -5,19 +5,19 @@ import { useUser } from "@/context/UserContext";
 import DashboardHeader from "@/components/DashboardHeader";
 
 export default function CoachPlayers() {
-  const { user, loading: userLoading } = useUser();
+  const { userData, loading } = useUser();
   const [players, setPlayers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!userLoading && user?.uid) {
-      fetchPlayers(user.uid);
-    } else if (!user && !userLoading) {
+    if (!loading && userData?.id) {
+      fetchPlayers(userData.id);
+    } else if (!userData && !loading) {
       setError("Not authenticated");
-      setLoading(false);
+      setFetchLoading(false);
     }
-  }, [user, userLoading]);
+  }, [userData, loading]);
 
   const fetchPlayers = async (coachId) => {
     try {
@@ -34,11 +34,11 @@ export default function CoachPlayers() {
       console.error("Fetch error:", err.message);
       setError(err.message);
     } finally {
-      setLoading(false);
+      setFetchLoading(false);
     }
   };
 
-  if (loading || userLoading)
+  if (fetchLoading || loading)
     return (
       <div className="text-center py-6 text-gray-600">Loading players...</div>
     );

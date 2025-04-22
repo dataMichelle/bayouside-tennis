@@ -1,5 +1,3 @@
-// app/dashboard/owner/players/page.jsx
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -14,7 +12,10 @@ export default function OwnerPlayersPage() {
     const fetchPlayers = async () => {
       try {
         const res = await fetch("/api/owner/players");
-        if (!res.ok) throw new Error("Failed to fetch players");
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to fetch players");
+        }
         const data = await res.json();
         setPlayers(data);
       } catch (err) {
@@ -27,7 +28,10 @@ export default function OwnerPlayersPage() {
     fetchPlayers();
   }, []);
 
-  const formatUSD = (cents) => `$${(cents / 100).toFixed(2)}`;
+  const formatUSD = (cents) => {
+    if (cents === "") return "-";
+    return `$${(cents / 100).toFixed(2)}`;
+  };
 
   if (loading)
     return <div className="p-6 text-gray-600">Loading players...</div>;
@@ -54,16 +58,19 @@ export default function OwnerPlayersPage() {
             </thead>
             <tbody>
               {players.map((player, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
+                <tr
+                  key={player._id || index}
+                  className="border-b hover:bg-gray-50"
+                >
                   <td className="p-3">{player.name || "N/A"}</td>
                   <td className="p-3">{player.email || "N/A"}</td>
                   <td className="p-3">{player.phone || "N/A"}</td>
-                  <td className="p-3">{player.bookingCount}</td>
+                  <td className="p-3">
+                    {player.bookingCount === "" ? "" : player.bookingCount}
+                  </td>
                   <td className="p-3">{formatUSD(player.totalPaid)}</td>
                   <td className="p-3">
-                    {player.lastBooking
-                      ? new Date(player.lastBooking).toLocaleDateString("en-US")
-                      : "-"}
+                    {player.lastBooking === "" ? "" : player.lastBooking}
                   </td>
                 </tr>
               ))}

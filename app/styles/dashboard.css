@@ -16,7 +16,7 @@ main {
   background: white;
 }
 
-/* Black headers for dashboard pages */
-main h1 {
-  color: #000000; /* Black */
+h1 {
+  color: black;
+  margin-top: 2rem;
 }

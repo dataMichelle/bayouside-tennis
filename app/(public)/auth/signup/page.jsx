@@ -170,7 +170,6 @@ export default function SignupPage() {
           >
             <option value="player">Player</option>
             <option value="coach">Coach</option>
-            <option value="owner">Owner</option>
           </select>
         </div>
 
