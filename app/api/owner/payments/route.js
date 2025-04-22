@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
@@ -11,7 +10,7 @@ export async function GET() {
       .collection("payments")
       .aggregate([
         { $match: { status: "completed" } },
-
+        // Convert userId to ObjectId if valid
         {
           $addFields: {
             userIdObj: {
@@ -23,7 +22,7 @@ export async function GET() {
             },
           },
         },
-
+        // Lookup user details
         {
           $lookup: {
             from: "users",
@@ -33,7 +32,7 @@ export async function GET() {
           },
         },
         { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-
+        // Lookup booking details
         {
           $lookup: {
             from: "bookings",
@@ -43,7 +42,7 @@ export async function GET() {
           },
         },
         { $unwind: { path: "$booking", preserveNullAndEmptyArrays: true } },
-
+        // Lookup coach details
         {
           $lookup: {
             from: "coaches",
@@ -53,13 +52,44 @@ export async function GET() {
           },
         },
         { $unwind: { path: "$coach", preserveNullAndEmptyArrays: true } },
-
+        // Lookup settings
+        {
+          $lookup: {
+            from: "settings",
+            pipeline: [{ $limit: 1 }],
+            as: "settings",
+          },
+        },
+        { $unwind: { path: "$settings", preserveNullAndEmptyArrays: true } },
+        // Convert coach.rate to double and calculate duration
         {
           $addFields: {
+            coachRateNumeric: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ["$coach.rate", null] },
+                    { $ne: ["$coach.rate", ""] },
+                    { $isNumber: { $toDouble: "$coach.rate" } },
+                  ],
+                },
+                { $toDouble: "$coach.rate" },
+                0,
+              ],
+            },
             durationHours: {
               $cond: [
                 {
-                  $and: ["$booking.startTime", "$booking.endTime"],
+                  $and: [
+                    { $ne: ["$booking.startTime", null] },
+                    { $ne: ["$booking.endTime", null] },
+                    {
+                      $gt: [
+                        { $toDate: "$booking.endTime" },
+                        { $toDate: "$booking.startTime" },
+                      ],
+                    },
+                  ],
                 },
                 {
                   $divide: [
@@ -77,36 +107,65 @@ export async function GET() {
             },
           },
         },
-
+        // Project final fields
         {
           $project: {
+            _id: 1,
             playerName: { $ifNull: ["$user.name", "Unknown"] },
             totalAmount: "$amount",
             coachFee: {
               $round: [
-                {
-                  $multiply: ["$coach.rate", "$durationHours"],
-                },
-                0,
+                { $multiply: ["$coachRateNumeric", "$durationHours"] },
+                2,
               ],
             },
             ownerShare: {
               $round: [
                 {
-                  $subtract: [
-                    "$amount",
+                  $add: [
+                    { $ifNull: ["$settings.courtRentalCost", 0] },
                     {
-                      $multiply: ["$coach.rate", "$durationHours"],
+                      $multiply: [
+                        { $multiply: ["$coachRateNumeric", "$durationHours"] },
+                        {
+                          $divide: [
+                            {
+                              $subtract: [
+                                100,
+                                {
+                                  $ifNull: [
+                                    "$settings.coachFeeSplitPercentage",
+                                    60,
+                                  ],
+                                },
+                              ],
+                            },
+                            100,
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      $cond: [
+                        { $eq: ["$booking.ballMachine", true] },
+                        { $ifNull: ["$settings.ballMachineCost", 0] },
+                        0,
+                      ],
                     },
                   ],
                 },
-                0,
+                2,
               ],
             },
             status: 1,
             bookingTime: {
               $cond: [
-                { $and: ["$booking.startTime", "$booking.endTime"] },
+                {
+                  $and: [
+                    { $ne: ["$booking.startTime", null] },
+                    { $ne: ["$booking.endTime", null] },
+                  ],
+                },
                 {
                   $concat: [
                     {
@@ -134,11 +193,50 @@ export async function GET() {
       ])
       .toArray();
 
-    return NextResponse.json(payments);
+    // Transform bookingTime to 12-hour format
+    const formattedPayments = payments.map((payment) => {
+      if (payment.bookingTime !== "N/A") {
+        const [start, end] = payment.bookingTime.split(" - ");
+        const [date, startTime] = start.split(" ");
+        const startDate = new Date(`${date}T${startTime}:00-05:00`); // Assuming America/Chicago (UTC-5)
+        const endDate = new Date(`${date}T${end}:00-05:00`);
+
+        const formattedStart = startDate.toLocaleString("en-US", {
+          hour: "numeric",
+          minute: "numeric",
+          hour12: true,
+          timeZone: "America/Chicago",
+        });
+        const formattedEnd = endDate.toLocaleString("en-US", {
+          hour: "numeric",
+          minute: "numeric",
+          hour12: true,
+          timeZone: "America/Chicago",
+        });
+
+        return {
+          ...payment,
+          bookingTime: `${date} ${formattedStart} - ${formattedEnd}`,
+        };
+      }
+      return payment;
+    });
+
+    console.log(
+      `Fetched ${formattedPayments.length} payments`,
+      formattedPayments
+    );
+    return NextResponse.json(formattedPayments);
   } catch (error) {
-    console.error("GET /api/owner/payments error:", error);
+    console.error("GET /api/owner/payments error:", {
+      message: error.message,
+      stack: error.stack,
+    });
     return NextResponse.json(
-      { error: "Failed to load payments", details: error.message },
+      {
+        error: "Failed to load payments",
+        details: error.message,
+      },
       { status: 500 }
     );
   }

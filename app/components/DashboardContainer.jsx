@@ -17,7 +17,7 @@ export default function DashboardContainer({ children }) {
   }, [loading, role, router]);
 
   if (loading || !role) {
-    return <div className="p-6">Loading...</div>;
+    return <div>Loading...</div>;
   }
 
   return (

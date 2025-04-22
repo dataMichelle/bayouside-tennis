@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 import DashboardHeader from "@/components/DashboardHeader";
 
-export default function OwnerPaymentsPage() {
-  const [payments, setPayments] = useState([]);
+export default function OwnerPlayersPage() {
+  const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchPayments = async () => {
+    const fetchPlayers = async () => {
       try {
-        const res = await fetch("/api/owner/payments");
-        if (!res.ok) throw new Error("Failed to fetch payments");
+        const res = await fetch("/api/owner/players");
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to fetch players");
+        }
         const data = await res.json();
-        setPayments(data);
+        setPlayers(data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -22,43 +25,46 @@ export default function OwnerPaymentsPage() {
       }
     };
 
-    fetchPayments();
+    fetchPlayers();
   }, []);
 
-  const formatUSD = (amount) => `$${parseFloat(amount).toFixed(2)}`;
+  const formatUSD = (cents) => `$${(cents / 100).toFixed(2)}`;
 
   if (loading)
-    return <div className="p-6 text-gray-600">Loading payments...</div>;
+    return <div className="p-6 text-gray-600">Loading players...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
   return (
     <main className="p-6">
-      <DashboardHeader title="Rental Payments" />
+      <DashboardHeader title="Registered Players" />
 
-      {payments.length === 0 ? (
-        <p className="text-gray-500">No payments found.</p>
+      {players.length === 0 ? (
+        <p className="text-gray-500">No players found.</p>
       ) : (
         <div className="overflow-x-auto mt-4">
           <table className="w-full border-collapse bg-white shadow-md rounded-lg">
             <thead className="bg-gray-200 text-gray-700">
               <tr>
-                <th className="border p-3 text-left">Player</th>
-                <th className="border p-3 text-left">Total Paid</th>
-                <th className="border p-3 text-left">Coach Fee</th>
+                <th className="border p-3 text-left">Name</th>
+                <th className="border p-3 text-left">Email</th>
+                <th className="border p-3 text-left">Phone</th>
+                <th className="border p-3 text-left">Bookings</th>
                 <th className="border p-3 text-left">Owner Share</th>
-                <th className="border p-3 text-left">Status</th>
-                <th className="border p-3 text-left">Booking</th>
+                <th className="border p-3 text-left">Last Booking</th>
               </tr>
             </thead>
             <tbody>
-              {payments.map((p) => (
-                <tr key={p._id} className="border-b hover:bg-gray-50">
-                  <td className="p-3">{p.playerName || "Unknown"}</td>
-                  <td className="p-3">{formatUSD(p.totalAmount)}</td>
-                  <td className="p-3">{formatUSD(p.coachFee)}</td>
-                  <td className="p-3">{formatUSD(p.ownerShare)}</td>
-                  <td className="p-3">{p.status}</td>
-                  <td className="p-3">{p.bookingTime}</td>
+              {players.map((player, index) => (
+                <tr
+                  key={player._id || index}
+                  className="border-b hover:bg-gray-50"
+                >
+                  <td className="p-3">{player.name || "N/A"}</td>
+                  <td className="p-3">{player.email || "N/A"}</td>
+                  <td className="p-3">{player.phone || "N/A"}</td>
+                  <td className="p-3">{player.bookingCount || 0}</td>
+                  <td className="p-3">{formatUSD(player.totalPaid || 0)}</td>
+                  <td className="p-3">{player.lastBooking || "-"}</td>
                 </tr>
               ))}
             </tbody>
