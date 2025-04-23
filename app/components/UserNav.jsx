@@ -10,7 +10,7 @@ import { useUser } from "@/context/UserContext";
 import { roleLinks, authLinks } from "@/utils/navLinks";
 import { getUserNavLinks } from "@/utils/navLinks";
 
-export default function UserNav({ closeMenu }) {
+export default function UserNav({ closeMenu, isMobile }) {
   const router = useRouter();
   const { firebaseUser, userData, role, loading } = useUser();
 
@@ -39,7 +39,7 @@ export default function UserNav({ closeMenu }) {
               closeMenu();
               handleLogout();
             }}
-            className="text-black text-sm hover:text-orange-700 text-left"
+            className="text-black text-sm text-left"
           >
             {link.label}
           </button>
@@ -48,7 +48,11 @@ export default function UserNav({ closeMenu }) {
             key={link.label}
             href={link.path}
             onClick={closeMenu}
-            className="text-black text-sm hover:text-orange-700 hover:bg-taupe-300 rounded-md px-2 py-1"
+            className={`text-black text-sm rounded-md px-2 py-1 ${
+              isMobile
+                ? "hover:bg-taupe-400 hover:text-white"
+                : "hover:text-black"
+            }`}
           >
             {link.label}
           </Link>

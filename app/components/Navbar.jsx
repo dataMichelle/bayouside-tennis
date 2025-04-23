@@ -16,7 +16,7 @@ export default function Navbar() {
   return (
     <header className="relative z-[100] w-full">
       {/* Desktop Nav */}
-      <div className="hidden sm:flex fixed top-4 left-1/2 -translate-x-1/2 h-[3.5rem] w-auto max-w-4xl px-6 rounded-full border border-swamp-400 border-opacity-40 bg-taupe-200 bg-opacity-80 shadow-[0px_8px_16px_rgba(34,85,34,1)] backdrop-blur-[0.5rem] items-center gap-4 font-nunito animate-jiggle">
+      <div className="hidden sm:flex fixed top-4 left-1/2 -translate-x-1/2 h-[3.5rem] w-auto max-w-4xl px-4 rounded-full border border-swamp-400 border-opacity-40 bg-taupe-200 bg-opacity-80 shadow-[0px_8px_16px_rgba(34,85,34,1)] backdrop-blur-[0.5rem] items-center gap-4 font-nunito animate-jiggle">
         <StaticNav />
         <Suspense
           fallback={<div className="text-sm text-gray-500">Loading...</div>}
@@ -37,8 +37,8 @@ export default function Navbar() {
             <Suspense
               fallback={<div className="text-sm text-gray-500">Loading...</div>}
             >
-              <StaticNav closeMenu={closeMenu} />
-              <UserNav closeMenu={closeMenu} />
+              <StaticNav closeMenu={closeMenu} isMobile={true} />
+              <UserNav closeMenu={closeMenu} isMobile={true} />
             </Suspense>
           </div>
         </div>
@@ -46,7 +46,7 @@ export default function Navbar() {
 
       {/* Hamburger toggle if menu not open */}
       {!isMobileMenuOpen && (
-        <div className="sm:hidden fixed top-4 right-4 z-[200]">
+        <div className="sm:hidden fixed top-4 right-4 z-[200] ">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
             className="bg-taupe-200 p-2 rounded-md shadow-md"
