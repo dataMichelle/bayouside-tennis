@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import DashboardHeader from "@/components/DashboardHeader";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function OwnerSettingsPage() {
   const [form, setForm] = useState({
@@ -62,40 +63,42 @@ export default function OwnerSettingsPage() {
   if (loading) return <div className="p-6">Loading...</div>;
 
   return (
-    <main className="p-6 max-w-2xl mx-auto">
-      <DashboardHeader title="Court Rental Settings" />
-      <form onSubmit={handleSubmit} className="space-y-6 mt-6">
-        <Input
-          label="Court Rental Cost ($/hr)"
-          name="courtRentalCost"
-          value={form.courtRentalCost}
-          onChange={handleChange}
-        />
-        <Input
-          label="Ball Machine Cost ($/hr)"
-          name="ballMachineCost"
-          value={form.ballMachineCost}
-          onChange={handleChange}
-        />
-        <Input
-          label="Coach Fee Split (%) — % paid to coach"
-          name="coachFeeSplitPercentage"
-          value={form.coachFeeSplitPercentage}
-          onChange={handleChange}
-        />
+    <ProtectedRoute allowedRoles={["coach", "owner"]} redirectTo="/auth/login">
+      <main className="p-6 max-w-2xl mx-auto">
+        <DashboardHeader title="Court Rental Settings" />
+        <form onSubmit={handleSubmit} className="space-y-6 mt-6">
+          <Input
+            label="Court Rental Cost ($/hr)"
+            name="courtRentalCost"
+            value={form.courtRentalCost}
+            onChange={handleChange}
+          />
+          <Input
+            label="Ball Machine Cost ($/hr)"
+            name="ballMachineCost"
+            value={form.ballMachineCost}
+            onChange={handleChange}
+          />
+          <Input
+            label="Coach Fee Split (%) — % paid to coach"
+            name="coachFeeSplitPercentage"
+            value={form.coachFeeSplitPercentage}
+            onChange={handleChange}
+          />
 
-        {message && (
-          <p className="text-center text-sm text-blue-600">{message}</p>
-        )}
+          {message && (
+            <p className="text-center text-sm text-blue-600">{message}</p>
+          )}
 
-        <button
-          type="submit"
-          className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-        >
-          Save Changes
-        </button>
-      </form>
-    </main>
+          <button
+            type="submit"
+            className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+          >
+            Save Changes
+          </button>
+        </form>
+      </main>
+    </ProtectedRoute>
   );
 }
 

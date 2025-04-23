@@ -1,33 +1,32 @@
-// utils/navLinks.js
-export const getNavLinksForRole = (role, isLoggedIn) => {
-  const baseLinks = [
-    { path: "/", label: "Home" },
-    { path: "/about", label: "About Us" },
-    { path: "/coaches", label: "Coaches" },
-    { path: "/players/info", label: "Player Info" },
-    { path: "/booking", label: "Book Court" },
-  ];
+// app/utils/navLinks.js
 
-  let roleBasedLinks = [];
+// Links that always show in the static nav
+export const baseLinks = [
+  { path: "/", label: "Home" },
+  { path: "/about", label: "About Us" },
+  { path: "/coaches", label: "Coaches" },
+  { path: "/players/info", label: "Player Info" },
+  { path: "/booking", label: "Book Court" },
+];
 
-  if (isLoggedIn) {
-    if (role === "player") {
-      roleBasedLinks = [
-        { path: "/players/reservations", label: "Reservations" },
-      ];
-    } else if (role === "coach") {
-      roleBasedLinks = [{ path: "/dashboard/coach", label: "Dashboard" }];
-    } else if (role === "owner") {
-      roleBasedLinks = [{ path: "/dashboard/owner", label: "Dashboard" }];
-    }
-  }
+// Links specific to roles
+export const roleLinksMap = {
+  player: [{ path: "/players/reservations", label: "Reservations" }],
+  coach: [{ path: "/dashboard/coach", label: "Dashboard" }],
+  owner: [{ path: "/dashboard/owner", label: "Dashboard" }],
+};
 
-  const authLinks = isLoggedIn
+// Auth-specific links
+export const getAuthLinks = (isLoggedIn = false) =>
+  isLoggedIn
     ? [{ path: "#", label: "Log Out", onClick: true }]
     : [
         { path: "/auth/login", label: "Log In" },
         { path: "/auth/signup", label: "Sign Up" },
       ];
 
-  return [...baseLinks, ...roleBasedLinks, ...authLinks];
+// Combined helper for UserNav
+export const getUserNavLinks = (role = "player", isLoggedIn = false) => {
+  const roleLinks = isLoggedIn ? roleLinksMap[role] || [] : [];
+  return [...roleLinks, ...getAuthLinks(isLoggedIn)];
 };

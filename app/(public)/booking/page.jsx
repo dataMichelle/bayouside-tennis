@@ -9,6 +9,7 @@ import "react-calendar/dist/Calendar.css";
 import { usePayment } from "@/context/PaymentContext";
 import BookingModals from "@/components/BookingModals";
 import { calculateCostBreakdown } from "@/utils/cost";
+import toast, { Toaster } from "react-hot-toast"; // Import react-hot-toast
 
 export default function BookingPage() {
   const [user, setUser] = useState(null);
@@ -88,13 +89,18 @@ export default function BookingPage() {
           setError(err.message);
         }
       } else {
-        setError("Please log in to access booking.");
+        // Show toast and redirect to login
+        toast.error("Please log in to access the booking page.", {
+          duration: 3000,
+        });
+        setTimeout(() => {
+          router.push("/auth/login");
+        }, 1500); //
       }
       setLoading(false);
     });
-    return () => {
-      unsubscribe();
-    };
+
+    return () => unsubscribe();
   }, [searchParams, router, verifyPayments]);
 
   const handleLogout = async () => {
@@ -346,133 +352,136 @@ export default function BookingPage() {
   };
 
   if (loading) return <div className="text-center p-6">Loading...</div>;
-  if (!user)
-    return <div className="text-center p-6">Please log in to book.</div>;
-  if (error)
-    return <div className="text-center p-6 text-red-500">Error: {error}</div>;
 
   return (
-    <main className="min-h-screen p-6">
-      <h1 className="text-3xl font-bold text-primary-700 mb-6 text-center">
-        Booking Page
-      </h1>
-      <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
-        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-          <div>
-            <label
-              htmlFor="coach"
-              className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
-            >
-              Select Coach
-            </label>
-            <select
-              id="coach"
-              value={selectedCoach}
-              onChange={(e) => {
-                setSelectedCoach(e.target.value);
-                setSelectedSlots([]);
-              }}
-              className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">Choose a coach</option>
-              <option value="no-coach">No Coach</option>
-              {coaches.map((coach) => (
-                <option key={coach._id} value={coach._id}>
-                  {coach.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {selectedCoach && (
-            <div>
-              <h2 className="text-lg font-semibold text-primary-600 mb-2">
-                Select Dates (Central Time)
-              </h2>
-              <Calendar
-                onChange={setCalendarDate}
-                value={calendarDate}
-                tileContent={tileContent}
-                onClickDay={handleDateClick}
-                className="mx-auto"
-              />
-              <div className="mt-4">
-                <h3 className="text-md font-medium text-neutrals-700 dark:text-neutrals-300">
-                  Selected Slots:
-                </h3>
-                {selectedSlots.length > 0 ? (
-                  <ul className="list-disc pl-5">
-                    {selectedSlots.map((slot, index) => (
-                      <li key={index}>
-                        {slot.day} {slot.date.toLocaleDateString()}{" "}
-                        {formatTimeTo12HourCDT(slot.date)} -{" "}
-                        {formatTimeTo12HourCDT(
-                          new Date(slot.date).setHours(slot.date.getHours() + 1)
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-neutrals-600 dark:text-neutrals-300">
-                    No slots selected.
-                  </p>
-                )}
+    <>
+      <Toaster position="top-center" /> {/* Add Toaster component */}
+      {user ? (
+        <main className="min-h-screen p-6">
+          <h1 className="text-3xl font-bold text-primary-700 mb-6 text-center">
+            Booking Page
+          </h1>
+          <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
+            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+              <div>
+                <label
+                  htmlFor="coach"
+                  className="block text-sm font-medium text-neutrals-700 dark:text-neutrals-300 mb-1"
+                >
+                  Select Coach
+                </label>
+                <select
+                  id="coach"
+                  value={selectedCoach}
+                  onChange={(e) => {
+                    setSelectedCoach(e.target.value);
+                    setSelectedSlots([]);
+                  }}
+                  className="w-full px-4 py-2 border border-primary-200 dark:border-neutrals-700 rounded-md bg-primary-50 dark:bg-neutrals-900 text-neutrals-900 dark:text-neutrals-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Choose a coach</option>
+                  <option value="no-coach">No Coach</option>
+                  {coaches.map((coach) => (
+                    <option key={coach._id} value={coach._id}>
+                      {coach.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </div>
-          )}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="ballMachine"
-              checked={ballMachine}
-              onChange={(e) => setBallMachine(e.target.checked)}
-              className="mr-2"
-            />
-            <label
-              htmlFor="ballMachine"
-              className="text-sm font-medium text-neutrals-700 dark:text-neutrals-300"
-            >
-              Rent Ball Machine
-            </label>
+              {selectedCoach && (
+                <div>
+                  <h2 className="text-lg font-semibold text-primary-600 mb-2">
+                    Select Dates (Central Time)
+                  </h2>
+                  <Calendar
+                    onChange={setCalendarDate}
+                    value={calendarDate}
+                    tileContent={tileContent}
+                    onClickDay={handleDateClick}
+                    className="mx-auto"
+                  />
+                  <div className="mt-4">
+                    <h3 className="text-md font-medium text-neutrals-700 dark:text-neutrals-300">
+                      Selected Slots:
+                    </h3>
+                    {selectedSlots.length > 0 ? (
+                      <ul className="list-disc pl-5">
+                        {selectedSlots.map((slot, index) => (
+                          <li key={index}>
+                            {slot.day} {slot.date.toLocaleDateString()}{" "}
+                            {formatTimeTo12HourCDT(slot.date)} -{" "}
+                            {formatTimeTo12HourCDT(
+                              new Date(slot.date).setHours(
+                                slot.date.getHours() + 1
+                              )
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-neutrals-600 dark:text-neutrals-300">
+                        No slots selected.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="ballMachine"
+                  checked={ballMachine}
+                  onChange={(e) => setBallMachine(e.target.checked)}
+                  className="mr-2"
+                />
+                <label
+                  htmlFor="ballMachine"
+                  className="text-sm font-medium text-neutrals-700 dark:text-neutrals-300"
+                >
+                  Rent Ball Machine
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                disabled={selectedSlots.length === 0}
+                className="w-full px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition-colors shadow-md disabled:bg-gray-400"
+              >
+                Book Selected Slots
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full px-6 py-3 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 transition-colors shadow-md"
+              >
+                Logout
+              </button>
+            </form>
           </div>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            disabled={selectedSlots.length === 0}
-            className="w-full px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition-colors shadow-md disabled:bg-gray-400"
-          >
-            Book Selected Slots
-          </button>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full px-6 py-3 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 transition-colors shadow-md"
-          >
-            Logout
-          </button>
-        </form>
-      </div>
 
-      <BookingModals
-        modalOpen={modalOpen}
-        setModalOpen={setModalOpen}
-        paymentModalOpen={paymentModalOpen}
-        setPaymentModalOpen={setPaymentModalOpen}
-        slotModalOpen={slotModalOpen}
-        setSlotModalOpen={setSlotModalOpen}
-        selectedSlots={selectedSlots}
-        selectedDaySlots={selectedDaySlots}
-        currentDay={currentDay}
-        handleSlotToggle={handleSlotToggle}
-        confirmSlotSelection={confirmSlotSelection}
-        handleBookingConfirm={handleBookingConfirm}
-        handlePaymentConfirm={handlePaymentConfirm}
-        coaches={coaches}
-        selectedCoach={selectedCoach}
-        settings={settings}
-        ballMachine={ballMachine}
-        paymentError={paymentError}
-        isProcessing={isProcessing}
-      />
-    </main>
+          <BookingModals
+            modalOpen={modalOpen}
+            setModalOpen={setModalOpen}
+            paymentModalOpen={paymentModalOpen}
+            setPaymentModalOpen={setPaymentModalOpen}
+            slotModalOpen={slotModalOpen}
+            setSlotModalOpen={setSlotModalOpen}
+            selectedSlots={selectedSlots}
+            selectedDaySlots={selectedDaySlots}
+            currentDay={currentDay}
+            handleSlotToggle={handleSlotToggle}
+            confirmSlotSelection={confirmSlotSelection}
+            handleBookingConfirm={handleBookingConfirm}
+            handlePaymentConfirm={handlePaymentConfirm}
+            coaches={coaches}
+            selectedCoach={selectedCoach}
+            settings={settings}
+            ballMachine={ballMachine}
+            paymentError={paymentError}
+            isProcessing={isProcessing}
+          />
+        </main>
+      ) : null}
+    </>
   );
 }

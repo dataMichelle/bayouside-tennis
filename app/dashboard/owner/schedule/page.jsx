@@ -5,6 +5,7 @@ import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import DashboardHeader from "@/components/DashboardHeader";
 import { formatInTimeZone, toDate } from "date-fns-tz";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function OwnerSchedulePage() {
   const [events, setEvents] = useState([]);
@@ -57,31 +58,33 @@ export default function OwnerSchedulePage() {
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
   return (
-    <main className="p-6">
-      <DashboardHeader />
-      <FullCalendar
-        plugins={[timeGridPlugin]}
-        initialView="timeGridWeek"
-        slotMinTime="06:00:00"
-        slotMaxTime="21:00:00"
-        events={events}
-        height="auto"
-        headerToolbar={{
-          left: "prev,next today",
-          center: "title",
-          right: "timeGridWeek,timeGridDay",
-        }}
-        eventTimeFormat={{
-          hour: "numeric",
-          minute: "2-digit",
-          meridiem: "short",
-        }}
-        slotLabelFormat={{
-          hour: "numeric",
-          minute: "2-digit",
-          meridiem: "short",
-        }}
-      />
-    </main>
+    <ProtectedRoute allowedRoles={["coach", "owner"]} redirectTo="/auth/login">
+      <main className="p-6">
+        <DashboardHeader />
+        <FullCalendar
+          plugins={[timeGridPlugin]}
+          initialView="timeGridWeek"
+          slotMinTime="06:00:00"
+          slotMaxTime="21:00:00"
+          events={events}
+          height="auto"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "timeGridWeek,timeGridDay",
+          }}
+          eventTimeFormat={{
+            hour: "numeric",
+            minute: "2-digit",
+            meridiem: "short",
+          }}
+          slotLabelFormat={{
+            hour: "numeric",
+            minute: "2-digit",
+            meridiem: "short",
+          }}
+        />
+      </main>
+    </ProtectedRoute>
   );
 }

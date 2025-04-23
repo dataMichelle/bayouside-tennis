@@ -121,7 +121,7 @@ export default function Login() {
       <p className="mt-4 text-center text-neutrals-600 dark:text-neutrals-300">
         Don’t have an account?{" "}
         <Link
-          href="/signup"
+          href="/auth/signup"
           className="text-primary-700 dark:text-primary-300 hover:underline"
         >
           Sign Up

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import DashboardHeader from "@/components/DashboardHeader";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function CoachPayments() {
   const { userData, loading: userLoading } = useUser();
@@ -66,48 +67,50 @@ export default function CoachPayments() {
     return <div className="text-center p-6 text-red-500">Error: {error}</div>;
 
   return (
-    <div className="min-h-screen p-6 bg-gray-100">
-      <DashboardHeader title="Payments" />
+    <ProtectedRoute allowedRoles={["coach", "owner"]} redirectTo="/auth/login">
+      <div className="min-h-screen p-6 bg-gray-100">
+        <DashboardHeader title="Payments" />
 
-      <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto">
-        <h2 className="text-xl font-semibold text-primary-600 mb-4">
-          Payment History
-        </h2>
-        <p className="text-lg mb-4">
-          <strong>Total Payments to Date:</strong> $
-          {totalCoachPayments.toFixed(2)}
-        </p>
-        {payments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse bg-white shadow-md rounded-lg">
-              <thead className="bg-gray-200 text-gray-700">
-                <tr>
-                  <th className="border p-3 text-left">Player Name</th>
-                  <th className="border p-3 text-left">Total Amount</th>
-                  <th className="border p-3 text-left">Coach Fee</th>
-                  <th className="border p-3 text-left">Status</th>
-                  <th className="border p-3 text-left">Date</th>
-                  <th className="border p-3 text-left">Booking Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((payment) => (
-                  <tr key={payment._id} className="border-b hover:bg-gray-50">
-                    <td className="p-3">{payment.playerName || "Unknown"}</td>
-                    <td className="p-3">{formatUSD(payment.amount)}</td>
-                    <td className="p-3">{formatUSD(payment.coachFee)}</td>
-                    <td className="p-3">{payment.status || "Unknown"}</td>
-                    <td className="p-3">{formatDate(payment.createdAt)}</td>
-                    <td className="p-3">{payment.bookingTime || "-"}</td>
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto">
+          <h2 className="text-xl font-semibold text-primary-600 mb-4">
+            Payment History
+          </h2>
+          <p className="text-lg mb-4">
+            <strong>Total Payments to Date:</strong> $
+            {totalCoachPayments.toFixed(2)}
+          </p>
+          {payments.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse bg-white shadow-md rounded-lg">
+                <thead className="bg-gray-200 text-gray-700">
+                  <tr>
+                    <th className="border p-3 text-left">Player Name</th>
+                    <th className="border p-3 text-left">Total Amount</th>
+                    <th className="border p-3 text-left">Coach Fee</th>
+                    <th className="border p-3 text-left">Status</th>
+                    <th className="border p-3 text-left">Date</th>
+                    <th className="border p-3 text-left">Booking Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-600 text-center">No payments found yet.</p>
-        )}
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment._id} className="border-b hover:bg-gray-50">
+                      <td className="p-3">{payment.playerName || "Unknown"}</td>
+                      <td className="p-3">{formatUSD(payment.amount)}</td>
+                      <td className="p-3">{formatUSD(payment.coachFee)}</td>
+                      <td className="p-3">{payment.status || "Unknown"}</td>
+                      <td className="p-3">{formatDate(payment.createdAt)}</td>
+                      <td className="p-3">{payment.bookingTime || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-600 text-center">No payments found yet.</p>
+          )}
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

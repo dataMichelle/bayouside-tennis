@@ -1,27 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useUser } from "@/context/UserContext";
+import useRequireRole from "@/hooks/useRequireRole";
 import CoachOwnerNavbar from "./CoachOwnerNavbar";
 import Sidebar from "./Sidebar";
 
 export default function DashboardContainer({ children }) {
-  const { role, loading } = useUser();
-  const router = useRouter();
+  const { role, loading, authorized } = useRequireRole(["coach", "owner"]);
 
-  useEffect(() => {
-    if (!loading && !role) {
-      router.push("/auth/login");
-    }
-  }, [loading, role, router]);
-
-  if (loading || !role) {
-    return <div>Loading...</div>;
+  if (loading || !authorized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white text-gray-600">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-white">
       <CoachOwnerNavbar role={role} />
       <div className="flex flex-1">
         <Sidebar role={role} />

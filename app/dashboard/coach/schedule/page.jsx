@@ -8,6 +8,7 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { format, toDate } from "date-fns";
 import * as tz from "date-fns-tz";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const { utcToZonedTime, formatInTimeZone } = tz;
 
@@ -114,64 +115,67 @@ export default function CoachSchedulePage() {
   };
 
   return (
-    <main className="p-6">
-      <DashboardHeader title="My Weekly Schedule" />
+    <ProtectedRoute allowedRoles={["coach", "owner"]} redirectTo="/auth/login">
+      <main className="p-6">
+        <DashboardHeader title="My Weekly Schedule" />
 
-      {loading && <p className="text-gray-600">Loading calendar...</p>}
-      {error && <p className="text-red-600">Error: {error}</p>}
+        {loading && <p className="text-gray-600">Loading calendar...</p>}
+        {error && <p className="text-red-600">Error: {error}</p>}
 
-      {!loading && !error && (
-        <FullCalendar
-          plugins={[timeGridPlugin]}
-          initialView="timeGridWeek"
-          timeZone="America/Chicago"
-          slotMinTime="06:00:00"
-          slotMaxTime="21:00:00"
-          events={events}
-          height="auto"
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "timeGridWeek,timeGridDay",
-          }}
-          eventClick={handleEventClick}
-          eventTimeFormat={{
-            hour: "numeric",
-            minute: "2-digit",
-            meridiem: "short",
-          }}
-          slotLabelFormat={{
-            hour: "numeric",
-            minute: "2-digit",
-            meridiem: "short",
-          }}
-        />
-      )}
+        {!loading && !error && (
+          <FullCalendar
+            plugins={[timeGridPlugin]}
+            initialView="timeGridWeek"
+            timeZone="America/Chicago"
+            slotMinTime="06:00:00"
+            slotMaxTime="21:00:00"
+            events={events}
+            height="auto"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "timeGridWeek,timeGridDay",
+            }}
+            eventClick={handleEventClick}
+            eventTimeFormat={{
+              hour: "numeric",
+              minute: "2-digit",
+              meridiem: "short",
+            }}
+            slotLabelFormat={{
+              hour: "numeric",
+              minute: "2-digit",
+              meridiem: "short",
+            }}
+          />
+        )}
 
-      {selectedBooking && (
-        <div className="mt-4 p-4 border rounded bg-gray-100 shadow fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-md">
-          <h3 className="text-lg font-bold mb-2">Booking Details</h3>
-          <p>
-            <strong>Player:</strong> {selectedBooking.playerName || "Unknown"}
-          </p>
-          <p>
-            <strong>Start:</strong>{" "}
-            {formatDateTimeToCDT(selectedBooking.startTime)}
-          </p>
-          <p>
-            <strong>End:</strong> {formatDateTimeToCDT(selectedBooking.endTime)}
-          </p>
-          <p>
-            <strong>Status:</strong> {selectedBooking.status}
-          </p>
-          <button
-            onClick={() => setSelectedBooking(null)}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Close
-          </button>
-        </div>
-      )}
-    </main>
+        {selectedBooking && (
+          <div className="mt-4 p-4 border rounded bg-gray-100 shadow fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-md">
+            <h3 className="text-lg font-bold mb-2">Booking Details</h3>
+            <p>
+              <strong>Player:</strong> {selectedBooking.playerName || "Unknown"}
+            </p>
+            <p>
+              <strong>Start:</strong>{" "}
+              {formatDateTimeToCDT(selectedBooking.startTime)}
+            </p>
+            <p>
+              <strong>End:</strong>{" "}
+              {formatDateTimeToCDT(selectedBooking.endTime)}
+            </p>
+            <p>
+              <strong>Status:</strong> {selectedBooking.status}
+            </p>
+            <button
+              onClick={() => setSelectedBooking(null)}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </main>
+    </ProtectedRoute>
   );
 }
