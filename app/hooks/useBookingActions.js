@@ -1,4 +1,4 @@
-// app/lib/useBookingActions.js
+"use client";
 import { useEffect, useState, useCallback } from "react";
 import { getAllCoaches, getSettings } from "@/lib/mongodb-queries";
 
