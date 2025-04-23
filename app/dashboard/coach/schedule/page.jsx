@@ -7,7 +7,9 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { format, toDate } from "date-fns";
-import { utcToZonedTime, formatInTimeZone } from "date-fns-tz";
+import * as tz from "date-fns-tz";
+
+const { utcToZonedTime, formatInTimeZone } = tz;
 
 export default function CoachSchedulePage() {
   const [events, setEvents] = useState([]);
@@ -50,18 +52,16 @@ export default function CoachSchedulePage() {
         if (!res.ok) throw new Error(data.error || "Failed to fetch schedule");
 
         const formatted = data.bookings.map((booking) => {
-      
-          // Convert UTC to CDT ISO string
           const startCDT = formatInTimeZone(
             toDate(booking.startTime),
             "America/Chicago",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
-          ); // e.g., "2025-04-22T15:00:00-05:00"
+          );
           const endCDT = formatInTimeZone(
             toDate(booking.endTime),
             "America/Chicago",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
-          ); // e.g., "2025-04-22T16:00:00-05:00"
+          );
           return {
             id: booking._id,
             title: booking.coachId
@@ -85,6 +85,7 @@ export default function CoachSchedulePage() {
         setLoading(false);
       }
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -109,7 +110,7 @@ export default function CoachSchedulePage() {
   const formatDateTimeToCDT = (utcDate) => {
     if (!utcDate) return "";
     const zonedDate = utcToZonedTime(toDate(utcDate), "America/Chicago");
-    return format(zonedDate, "M/d/yyyy h:mm a"); // e.g., "4/22/2025 3:00 PM"
+    return format(zonedDate, "M/d/yyyy h:mm a");
   };
 
   return (
