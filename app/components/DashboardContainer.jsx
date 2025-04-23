@@ -18,9 +18,11 @@ export default function DashboardContainer({ children }) {
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <CoachOwnerNavbar role={role} />
-      <div className="flex flex-1">
+
+      {/* Sidebar below navbar on small screens, side-by-side on md+ */}
+      <div className="flex flex-col md:flex-row flex-1">
         <Sidebar role={role} />
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4">{children}</main>
       </div>
     </div>
   );

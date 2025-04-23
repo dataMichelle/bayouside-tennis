@@ -27,6 +27,12 @@
 }
 
 /* Home Page */
+
+html,
+body {
+  overflow-x: hidden;
+}
+
 body.home {
   position: relative;
   background: url("/background.png") center/cover no-repeat;
@@ -114,4 +120,13 @@ h1 {
     inset 0 2px 4px rgba(255, 255, 255, 0.3),
     inset 0 -2px 4px rgba(0, 0, 0, 0.2);
   transform: perspective(1000px) rotateX(5deg);
+}
+@media (max-width: 450px) {
+  .nav-stack-xs {
+    flex-direction: column !important;
+  }
+
+  .hover\\:bg-swamp-200-xs:hover {
+    background-color: var(--color-swamp-200) !important;
+  }
 }
