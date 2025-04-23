@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import DashboardHeader from "@/components/DashboardHeader";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -125,6 +125,8 @@ export default function CoachSchedulePage() {
     });
   };
 
+  const calendarRef = useRef();
+
   return (
     <ProtectedRoute allowedRoles={["coach", "owner"]} redirectTo="/auth/login">
       <main className="p-6">
@@ -136,6 +138,7 @@ export default function CoachSchedulePage() {
         {!loading && !error && (
           <div className="w-full overflow-x-auto fc-toolbar">
             <FullCalendar
+              ref={calendarRef}
               plugins={[timeGridPlugin]}
               initialView="timeGridWeek"
               timeZone="America/Chicago"
@@ -145,24 +148,24 @@ export default function CoachSchedulePage() {
               height="auto"
               customButtons={{
                 customPrev: {
-                  text: "←", // You can also use ▷ or ⏴
+                  text: "←",
+                  classNames: ["fc-prev-btn"],
                   click: (arg) => {
-                    const calendarApi = arg.view.calendar;
-                    calendarApi.prev();
+                    calendarRef.current?.getApi().prev();
                   },
                 },
                 customNext: {
                   text: "→",
+                  classNames: ["fc-next-btn"],
                   click: (arg) => {
-                    const calendarApi = arg.view.calendar;
-                    calendarApi.next();
+                    calendarRef.current?.getApi().next();
                   },
                 },
                 today: {
                   text: "Today",
+                  classNames: ["fc-today-btn"],
                   click: (arg) => {
-                    const calendarApi = arg.view.calendar;
-                    calendarApi.today();
+                    calendarRef.current?.getApi().today();
                   },
                 },
               }}

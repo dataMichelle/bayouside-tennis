@@ -80,31 +80,32 @@ export default function CoachPayments() {
             {totalCoachPayments.toFixed(2)}
           </p>
           {payments.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse bg-white shadow-md rounded-lg">
-                <thead className="bg-gray-200 text-gray-700">
-                  <tr>
-                    <th className="border p-3 text-left">Player Name</th>
-                    <th className="border p-3 text-left">Total Amount</th>
-                    <th className="border p-3 text-left">Coach Fee</th>
-                    <th className="border p-3 text-left">Status</th>
-                    <th className="border p-3 text-left">Date</th>
-                    <th className="border p-3 text-left">Booking Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment) => (
-                    <tr key={payment._id} className="border-b hover:bg-gray-50">
-                      <td className="p-3">{payment.playerName || "Unknown"}</td>
-                      <td className="p-3">{formatUSD(payment.amount)}</td>
-                      <td className="p-3">{formatUSD(payment.coachFee)}</td>
-                      <td className="p-3">{payment.status || "Unknown"}</td>
-                      <td className="p-3">{formatDate(payment.createdAt)}</td>
-                      <td className="p-3">{payment.bookingTime || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {payments.map((payment) => (
+                <div
+                  key={payment._id}
+                  className="border rounded-lg shadow-md p-4 bg-white hover:shadow-lg transition duration-200"
+                >
+                  <h3 className="text-md font-semibold text-gray-800 mb-1">
+                    {payment.playerName || "Unknown"}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    <strong>Amount:</strong> {formatUSD(payment.amount)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Coach Fee:</strong> {formatUSD(payment.coachFee)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Status:</strong> {payment.status || "Unknown"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Date:</strong> {formatDate(payment.createdAt)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Time:</strong> {payment.bookingTime || "-"}
+                  </p>
+                </div>
+              ))}
             </div>
           ) : (
             <p className="text-gray-600 text-center">No payments found yet.</p>

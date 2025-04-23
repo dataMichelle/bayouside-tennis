@@ -3,7 +3,6 @@
 @import "tailwindcss";
 
 @theme {
-  /* Swampy Colors */
   --color-swamp-100: #e6f0e6;
   --color-swamp-200: #cde0cd;
   --color-swamp-300: #a3c4a3;
@@ -18,7 +17,6 @@
   --color-teal-200: #cce0e0;
   --color-teal-300: #a3c4c4;
 
-  /* Font Styles */
   --font-nunito: "Nunito", sans-serif;
   --font-swampy: "Rubik Distressed", cursive;
   --font-chelsea: "Chelsea Market", cursive;
@@ -38,8 +36,6 @@
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
 }
 
 .fc-toolbar .fc-toolbar-chunk:first-child {
@@ -61,12 +57,12 @@
 .fc-toolbar .fc-toolbar-chunk {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.2rem;
 }
 
 .fc-toolbar .fc-button-group {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.2rem;
 }
 
 .fc .fc-button {
@@ -97,6 +93,29 @@
   font-size: 1.25rem;
   font-weight: bold;
   text-align: center;
+}
+
+/* Custom colors for FullCalendar buttons */
+.fc-prev-button,
+.fc-next-button {
+  background-color: #001f3f !important; /* Navy */
+  border-color: #001f3f !important;
+  color: #fff !important;
+}
+
+.fc-prev-button:hover,
+.fc-next-button:hover {
+  background-color: #001437 !important; /* Darker navy */
+}
+
+.fc-today-button {
+  background-color: #3a5c3a !important; /* Dark green */
+  border-color: #3a5c3a !important;
+  color: #fff !important;
+}
+
+.fc-today-button:hover {
+  background-color: #2f5d2f !important;
 }
 
 html,
