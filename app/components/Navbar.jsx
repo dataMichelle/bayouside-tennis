@@ -14,7 +14,7 @@ export default function Navbar() {
 
   // Use firebaseUser to determine logged-in state
   const isLoggedIn = !!firebaseUser;
-  const navRole = userData?.role || role || "player"; // Fallback to role or "player"
+  const navRole = userData?.role || role || "player";
   const links = getNavLinksForRole(navRole, isLoggedIn);
 
   const handleLogout = () => {
