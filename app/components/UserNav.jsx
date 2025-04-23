@@ -10,7 +10,7 @@ import { useUser } from "@/context/UserContext";
 import { roleLinks, authLinks } from "@/utils/navLinks";
 import { getUserNavLinks } from "@/utils/navLinks";
 
-export default function UserNav() {
+export default function UserNav({ closeMenu }) {
   const router = useRouter();
   const { firebaseUser, userData, role, loading } = useUser();
 
@@ -30,13 +30,16 @@ export default function UserNav() {
   };
 
   return (
-    <nav className="flex space-x-4">
+    <nav className="flex flex-col sm:flex-row gap-2 sm:space-x-4 whitespace-nowrap">
       {links.map((link) =>
         link.onClick ? (
           <button
             key={link.label}
-            onClick={handleLogout}
-            className="text-black text-sm hover:text-orange-700"
+            onClick={() => {
+              closeMenu();
+              handleLogout();
+            }}
+            className="text-black text-sm hover:text-orange-700 text-left"
           >
             {link.label}
           </button>
@@ -44,7 +47,8 @@ export default function UserNav() {
           <Link
             key={link.label}
             href={link.path}
-            className="text-black text-sm hover:text-orange-700"
+            onClick={closeMenu}
+            className="text-black text-sm hover:text-orange-700 hover:bg-taupe-300 rounded-md px-2 py-1"
           >
             {link.label}
           </Link>
