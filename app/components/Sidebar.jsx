@@ -19,7 +19,7 @@ export default function Sidebar({ role }) {
       <h2 className="text-xl md:text-2xl font-bold text-primary-700 dark:text-primary-200 mb-4 md:mb-6 text-center md:text-left">
         {sidebarTitle}
       </h2>
-      <nav className="flex flex-row gap-1 sm:gap-2 md:gap-4 justify-center md:justify-start w-full max-w-xs mx-auto whitespace-nowrap nav-stack-xs link-bg-xxs">
+      <nav className="flex flex-row flex-wrap justify-center gap-1 sm:gap-2 md:flex-col md:justify-start md:gap-4 w-full max-w-xs mx-auto whitespace-nowrap">
         {links.map((link) => (
           <Link
             key={link.path}

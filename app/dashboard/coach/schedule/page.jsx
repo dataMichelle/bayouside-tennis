@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import DashboardHeader from "@/components/DashboardHeader";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
+
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { format, toDate } from "date-fns";
@@ -110,8 +111,18 @@ export default function CoachSchedulePage() {
 
   const formatDateTimeToCDT = (utcDate) => {
     if (!utcDate) return "";
-    const zonedDate = utcToZonedTime(toDate(utcDate), "America/Chicago");
-    return format(zonedDate, "M/d/yyyy h:mm a");
+    const date = new Date(utcDate);
+
+    // Format directly with .toLocaleString in CST/CDT
+    return date.toLocaleString("en-US", {
+      timeZone: "America/Chicago",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
   return (
@@ -123,31 +134,56 @@ export default function CoachSchedulePage() {
         {error && <p className="text-red-600">Error: {error}</p>}
 
         {!loading && !error && (
-          <FullCalendar
-            plugins={[timeGridPlugin]}
-            initialView="timeGridWeek"
-            timeZone="America/Chicago"
-            slotMinTime="06:00:00"
-            slotMaxTime="21:00:00"
-            events={events}
-            height="auto"
-            headerToolbar={{
-              left: "prev,next today",
-              center: "title",
-              right: "timeGridWeek,timeGridDay",
-            }}
-            eventClick={handleEventClick}
-            eventTimeFormat={{
-              hour: "numeric",
-              minute: "2-digit",
-              meridiem: "short",
-            }}
-            slotLabelFormat={{
-              hour: "numeric",
-              minute: "2-digit",
-              meridiem: "short",
-            }}
-          />
+          <div className="w-full overflow-x-auto fc-toolbar">
+            <FullCalendar
+              plugins={[timeGridPlugin]}
+              initialView="timeGridWeek"
+              timeZone="America/Chicago"
+              slotMinTime="06:00:00"
+              slotMaxTime="21:00:00"
+              events={events}
+              height="auto"
+              customButtons={{
+                customPrev: {
+                  text: "←", // You can also use ▷ or ⏴
+                  click: (arg) => {
+                    const calendarApi = arg.view.calendar;
+                    calendarApi.prev();
+                  },
+                },
+                customNext: {
+                  text: "→",
+                  click: (arg) => {
+                    const calendarApi = arg.view.calendar;
+                    calendarApi.next();
+                  },
+                },
+                today: {
+                  text: "Today",
+                  click: (arg) => {
+                    const calendarApi = arg.view.calendar;
+                    calendarApi.today();
+                  },
+                },
+              }}
+              headerToolbar={{
+                left: "customPrev,customNext today",
+                center: "title",
+                right: "timeGridWeek,timeGridDay",
+              }}
+              eventClick={handleEventClick}
+              eventTimeFormat={{
+                hour: "numeric",
+                minute: "2-digit",
+                meridiem: "short",
+              }}
+              slotLabelFormat={{
+                hour: "numeric",
+                minute: "2-digit",
+                meridiem: "short",
+              }}
+            />
+          </div>
         )}
 
         {selectedBooking && (

@@ -73,14 +73,14 @@ export default function CoachDashboard() {
 
   if (loading)
     return <div className="p-6 text-gray-600">Loading dashboard...</div>;
-  if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
+  if (error) return <div className=" text-red-600">Error: {error}</div>;
 
   return (
     <ProtectedRoute allowedRoles={["coach", "owner"]} redirectTo="/auth/login">
-      <main className="p-6">
+      <main>
         <DashboardHeader title={`Welcome, ${coachName || "Coach"}`} />
 
-        <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row gap-4">
+        <div className="max-w-4xl mx-auto my-6 flex flex-col sm:flex-row gap-4">
           <div className="bg-swamp-200 p-4 rounded-lg shadow-md flex-1">
             <h3 className="text-lg font-semibold text-gray-800">
               Total Income
