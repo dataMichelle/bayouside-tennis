@@ -2,41 +2,48 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+
 export async function GET() {
   try {
     const db = await connectDB(); // Use connectDB() for proper connection handling
 
     // Fetch coaches
-    const coaches = await db.collection("coaches").find({}).limit(5).toArray();
+    const coaches = await db.collection("coaches").find({}).toArray();
 
-    // Count weekly bookings per coach
-    const startOfWeek = new Date();
-    const endOfWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const bookingCounts = await db
+    // Count total bookings per coach
+    const totalBookingsPerCoach = await db
       .collection("bookings")
       .aggregate([
         {
           $match: {
-            status: "confirmed",
-            startTime: { $gte: startOfWeek, $lte: endOfWeek },
+            status: "confirmed", // Consider only confirmed bookings
           },
         },
         {
           $group: {
-            _id: "$coachId",
-            count: { $sum: 1 },
+            _id: "$coachId", // Group by coachId
+            totalBookings: { $sum: 1 }, // Count total bookings for each coach
           },
         },
       ])
       .toArray();
 
-    // Map booking counts to coaches
-    const coachesWithBookings = coaches.map((coach) => ({
-      ...coach,
-      _id: coach._id.toString(),
-      weeklyBookings:
-        bookingCounts.find((bc) => bc._id === coach.userId)?.count || 0,
-    }));
+    // Map total bookings count to coaches
+    const coachesWithBookings = coaches.map((coach) => {
+      const totalBookings =
+        totalBookingsPerCoach.find(
+          (item) => item._id.toString() === coach.userId
+        )?.totalBookings || 0;
+
+      return {
+        ...coach,
+        _id: coach._id.toString(),
+        totalBookings, // Add totalBookings field to each coach
+      };
+    });
 
     // Fetch recent payments
     const payments = await db
@@ -90,7 +97,7 @@ export async function GET() {
         {
           $match: {
             status: "confirmed",
-            startTime: { $gte: startOfWeek, $lte: endOfWeek },
+            startTime: { $gte: new Date() },
           },
         },
         {
@@ -138,18 +145,7 @@ export async function GET() {
       ])
       .toArray();
 
-    // Count total weekly bookings
-    const totalBookings = await db.collection("bookings").countDocuments({
-      status: "confirmed",
-      startTime: { $gte: startOfWeek, $lte: endOfWeek },
-    });
-
-    console.log("Dashboard API - Returning data:", {
-      coaches: coachesWithBookings.length,
-      payments: payments.length,
-      reservations: reservations.length,
-    });
-
+    // Return the data
     return NextResponse.json({
       coaches: coachesWithBookings,
       payments: payments.map((p) => ({
@@ -158,10 +154,12 @@ export async function GET() {
         bookingId: p.bookingId.toString(),
       })),
       settings,
-      reservations: reservations.map((r) => ({ ...r, _id: r._id.toString() })),
+      reservations: reservations.map((r) => ({
+        ...r,
+        _id: r._id.toString(),
+      })),
       totalRevenue,
       pendingPayments,
-      totalBookings,
     });
   } catch (error) {
     console.error("Dashboard API - Error:", error.message);
