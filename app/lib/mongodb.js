@@ -1,6 +1,6 @@
-// app/lib/mongodb.js
 import { MongoClient } from "mongodb";
 
+// The MongoDB URI from your environment variables
 const uri = process.env.MONGODB_URI;
 console.log("MONGODB_URI:", uri ? uri.substring(0, 20) + "..." : "undefined");
 
@@ -11,23 +11,22 @@ if (!uri) {
 let client;
 let clientPromise;
 
+// Use MongoClient as a singleton to avoid multiple connections in development
 if (process.env.NODE_ENV === "development") {
-  // In dev, reuse the global connection if available
-  if (!global._mongoClientPromise) {
+  if (!global._mongoClient) {
     client = new MongoClient(uri);
-    global._mongoClientPromise = client.connect();
+    global._mongoClient = client.connect();
   }
-  clientPromise = global._mongoClientPromise;
+  clientPromise = global._mongoClient;
 } else {
-  // In prod, always create a new connection
   client = new MongoClient(uri);
   clientPromise = client.connect();
 }
 
-// Remove the unnecessary recursive call to connectDB()
+// Connect to MongoDB and get the DB instance
 export async function connectDB() {
   try {
-    const client = await clientPromise; // Use the existing clientPromise
+    const client = await clientPromise; // Wait for connection
     const db = client.db("bayou-side-tennis");
     return db; // Return the database instance
   } catch (error) {
@@ -36,4 +35,4 @@ export async function connectDB() {
   }
 }
 
-export default clientPromise;
+export default clientPromise; // Default export for other modules to use

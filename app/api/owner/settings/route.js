@@ -9,10 +9,13 @@ const SETTINGS_ID = new ObjectId("67f04bfe9f9297149eb71237"); // use your actual
 export async function GET() {
   try {
     const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // Ensure the connection is handled via connectDB()
     const settings = await db
       .collection("settings")
       .findOne({ _id: SETTINGS_ID });
+
+    console.log("Fetched settings:", settings); // Log fetched settings to check the response
+
     if (!settings)
       return NextResponse.json(
         { error: "Settings not found" },
@@ -22,7 +25,7 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/owner/settings error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch settings" },
+      { error: "Failed to fetch settings", details: error.message },
       { status: 500 }
     );
   }
@@ -32,7 +35,7 @@ export async function PATCH(request) {
   try {
     const data = await request.json();
     const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // Ensure the connection is handled via connectDB()
 
     const result = await db.collection("settings").updateOne(
       { _id: SETTINGS_ID },

@@ -18,6 +18,7 @@ export default function OwnerSettingsPage() {
       try {
         const res = await fetch("/api/owner/settings");
         const data = await res.json();
+        console.log("Fetched data:", data);
         setForm({
           courtRentalCost: data.courtRentalCost?.toString() || "",
           ballMachineCost: data.ballMachineCost?.toString() || "",

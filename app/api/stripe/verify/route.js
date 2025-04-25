@@ -19,8 +19,7 @@ export async function POST(req) {
       );
     }
 
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     const allVerified = await Promise.all(
       bookingIds.map(async (bookingId) => {

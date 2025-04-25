@@ -3,8 +3,7 @@ import { connectDB } from "@/lib/mongodb"; // Use connectDB() for a better conne
 
 export async function GET() {
   try {
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     const players = await db
       .collection("users")

@@ -7,7 +7,7 @@ import { ObjectId } from "mongodb";
 export async function GET() {
   try {
     const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     const bookings = await db
       .collection("bookings")

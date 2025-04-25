@@ -12,8 +12,7 @@ export async function getBookingsForPlayer(playerId) {
 }
 
 export async function getBookingsForCoach(coachId) {
-  const client = await connectDB();
-  const db = client.db("bayou-side-tennis");
+  const db = await connectDB();
   return await db
     .collection("bookings")
     .find({ coachId: new ObjectId(coachId) })

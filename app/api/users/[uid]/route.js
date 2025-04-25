@@ -3,8 +3,7 @@ import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled v
 import { ObjectId } from "mongodb";
 
 export async function GET(_, { params }) {
-  const client = await connectDB();
-  const db = client.db("bayou-side-tennis");
+  const db = await connectDB();
   const user = await db
     .collection("users")
     .findOne({ _id: new ObjectId(params.uid) });

@@ -3,8 +3,7 @@ import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled v
 
 export async function GET() {
   try {
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     console.log("Fetching settings for ballMachineCost and courtRentalCost");
     const settings = await db.collection("settings").findOne({});

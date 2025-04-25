@@ -11,8 +11,7 @@ export async function GET(request) {
       return NextResponse.json({ error: "Missing playerId" }, { status: 400 });
     }
 
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // Ensure the connection is handled via connectDB()
 
     const bookings = await db
       .collection("bookings")

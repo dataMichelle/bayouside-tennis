@@ -11,8 +11,7 @@ export async function GET(request) {
       .filter((id) => id && id !== "null")
       .map((id) => new ObjectId(id));
 
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // Ensure the connection is handled via connectDB()
 
     const payments = await db
       .collection("payments")

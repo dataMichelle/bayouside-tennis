@@ -84,8 +84,7 @@ export async function POST(req) {
     });
 
     // Update bookings with session ID
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // Ensure the connection is handled via connectDB()
 
     const updateResult = await db
       .collection("bookings")

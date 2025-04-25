@@ -8,8 +8,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Invalid bookingIds" }, { status: 400 });
   }
 
-  const client = await connectDB();
-  const db = client.db("bayou-side-tennis");
+  const db = await connectDB();
 
   let allVerified = true;
 

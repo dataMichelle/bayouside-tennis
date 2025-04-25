@@ -7,8 +7,7 @@ import { ObjectId } from "mongodb";
 // --------------------
 export async function getPaymentsForCoach(coachId) {
   try {
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     const bookings = await db
       .collection("bookings")
@@ -103,9 +102,7 @@ export async function getPaymentsForCoach(coachId) {
 // --------------------
 export async function getPlayersForCoach(coachId) {
   try {
-    const client = await connectDB();
-    const db = client.db("bayou-side-tennis");
-
+    const db = await connectDB();
     const bookings = await db
       .collection("bookings")
       .find({ coachId })
