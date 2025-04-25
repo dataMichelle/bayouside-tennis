@@ -190,7 +190,7 @@ export default function OwnerDashboard() {
                           : "text-red-600"
                       }`}
                     >
-                      Booking {payment.bookingId.slice(0, 6)}... | $
+                      Booking {payment.bookingId} | $
                       {(payment.amount / 100).toFixed(2)} |{" "}
                       {formatDateTimeToCDT(payment.createdAt)} |{" "}
                       {payment.status}
