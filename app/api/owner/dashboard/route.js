@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
-import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
-
 export async function GET() {
   try {
     const db = await connectDB(); // Use connectDB() for proper connection handling
@@ -13,13 +9,28 @@ export async function GET() {
     // Fetch coaches
     const coaches = await db.collection("coaches").find({}).toArray();
 
-    // Count total bookings per coach
+    // Set the start of the current year (January 1st of the current year)
+    const startOfYear = new Date(Date.UTC(new Date().getFullYear(), 0, 1)); // Jan 1st, 2025, UTC
+    const endOfYear = new Date(Date.UTC(new Date().getFullYear() + 1, 0, 0)); // Dec 31st, 2025, UTC
+
+    // Set the start of this week (Monday)
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Adjust for the start of the week (Sunday)
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Set the end of this week (Sunday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Adjust to Sunday
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // Count total bookings per coach for the year
     const totalBookingsPerCoach = await db
       .collection("bookings")
       .aggregate([
         {
           $match: {
             status: "confirmed", // Consider only confirmed bookings
+            startTime: { $gte: startOfYear, $lte: endOfYear }, // Filter bookings for the year
           },
         },
         {
@@ -90,14 +101,14 @@ export async function GET() {
       await db.collection("settings").insertOne(settings);
     }
 
-    // Fetch upcoming reservations
+    // Fetch upcoming reservations for this week
     const reservations = await db
       .collection("bookings")
       .aggregate([
         {
           $match: {
             status: "confirmed",
-            startTime: { $gte: new Date() },
+            startTime: { $gte: startOfWeek, $lte: endOfWeek }, // This week
           },
         },
         {
@@ -145,7 +156,6 @@ export async function GET() {
       ])
       .toArray();
 
-    // Return the data
     return NextResponse.json({
       coaches: coachesWithBookings,
       payments: payments.map((p) => ({

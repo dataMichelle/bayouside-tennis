@@ -145,7 +145,9 @@ export default function OwnerDashboard() {
                     <tr className="border-b">
                       <th className="text-left py-2">Name</th>
                       <th className="text-left py-2">Rate</th>
-                      <th className="text-left py-2">Bookings</th>
+                      <th className="text-left py-2">
+                        Bookings ({new Date().getFullYear()})
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -153,7 +155,7 @@ export default function OwnerDashboard() {
                       <tr key={coach._id} className="hover:bg-swamp-100">
                         <td className="py-2">{coach.name || "Unknown"}</td>
                         <td className="py-2">${formatRate(coach.rate)}/hr</td>
-                        <td className="py-2">{coach.weeklyBookings || 0}</td>
+                        <td className="py-2">{coach.totalBookings || 0}</td>
                       </tr>
                     ))}
                   </tbody>
