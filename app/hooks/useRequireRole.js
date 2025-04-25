@@ -15,7 +15,7 @@ export default function useRequireRole(
     if (!loading && (role === null || !allowedRoles.includes(role))) {
       router.push(redirectTo);
     }
-  }, [loading, role, allowedRoles, redirectTo]);
+  }, [loading, role, allowedRoles, redirectTo, router]);
 
   return {
     role,
