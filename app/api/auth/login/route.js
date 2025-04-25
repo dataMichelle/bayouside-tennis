@@ -1,10 +1,9 @@
 // app/api/auth/login/route.js
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { adminAuth } from "@/lib/firebaseAdmin";
 
 export async function POST(request) {
-  let client;
   try {
     const { email, password } = await request.json();
 
@@ -15,8 +14,7 @@ export async function POST(request) {
       );
     }
 
-    client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // ✅ Ensures MongoDB client is connected
     const user = await db.collection("users").findOne({ email });
 
     if (!user || user.password !== password) {
@@ -46,9 +44,5 @@ export async function POST(request) {
       { error: "Login failed", details: error.message },
       { status: 500 }
     );
-  } finally {
-    if (process.env.NODE_ENV === "production" && client) {
-      await client.close();
-    }
   }
 }
