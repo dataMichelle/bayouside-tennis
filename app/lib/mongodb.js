@@ -2,6 +2,8 @@
 import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
+console.log("MONGODB_URI:", uri ? uri.substring(0, 20) + "..." : "undefined");
+
 if (!uri) {
   throw new Error("❌ MONGODB_URI is not defined!");
 }
@@ -20,6 +22,17 @@ if (process.env.NODE_ENV === "development") {
   // In prod, always create a new connection
   client = new MongoClient(uri);
   clientPromise = client.connect();
+}
+
+export async function connectDB() {
+  try {
+    const client = await clientPromise;
+    console.log("MongoDB connected");
+    return client.db("bayou-side-tennis");
+  } catch (error) {
+    console.error("MongoDB connection error:", error.message);
+    throw error;
+  }
 }
 
 export default clientPromise;
