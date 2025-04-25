@@ -4,30 +4,36 @@ import { getUserByFirebaseUid } from "@/lib/db/users";
 
 export async function GET(request) {
   try {
-    console.log("getUserByFirebaseUid import:", typeof getUserByFirebaseUid);
+    console.log("✅ /api/users route hit");
+
     const authHeader = request.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      console.log("Missing or invalid Authorization header");
+      console.log("❌ Missing or invalid Authorization header");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const token = authHeader.split(" ")[1];
-    console.log("Verifying Firebase ID token");
+    console.log("🔑 Verifying Firebase ID token...");
     const decodedToken = await adminAuth.verifyIdToken(token);
     const firebaseUid = decodedToken.uid;
+    console.log("👤 Firebase UID decoded:", firebaseUid);
 
-    console.log("Fetching user with firebaseUid:", firebaseUid);
     if (typeof getUserByFirebaseUid !== "function") {
-      throw new Error("getUserByFirebaseUid is not a function");
+      console.error("❌ getUserByFirebaseUid is not a function");
+      return NextResponse.json(
+        { error: "Server misconfiguration" },
+        { status: 500 }
+      );
     }
+
     const user = await getUserByFirebaseUid(firebaseUid);
 
     if (!user) {
-      console.log("User not found for firebaseUid:", firebaseUid);
+      console.warn("⚠️ No user found for Firebase UID:", firebaseUid);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    console.log("User found:", user);
+    console.log("✅ User found:", user.name || user.email || user._id);
     return NextResponse.json({
       _id: user._id.toString(),
       role: user.role || "player",
@@ -35,7 +41,7 @@ export async function GET(request) {
       email: user.email,
     });
   } catch (error) {
-    console.error("GET /api/users error:", error);
+    console.error("❌ GET /api/users error:", error.message);
     return NextResponse.json(
       { error: "Failed to fetch user", details: error.message },
       { status: 500 }
@@ -43,7 +49,6 @@ export async function GET(request) {
   }
 }
 
-// 🚫 POST is disabled
 export async function POST() {
   return NextResponse.json(
     { error: "POST not allowed on /api/users" },
