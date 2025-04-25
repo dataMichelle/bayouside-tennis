@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
 
 export async function GET() {
   try {
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
+
     const settings = await db.collection("settings").findOne();
     if (!settings) {
       throw new Error("Settings not found");

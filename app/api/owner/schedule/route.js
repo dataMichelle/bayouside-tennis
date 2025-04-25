@@ -1,12 +1,12 @@
 // app/api/owner/schedule/route.js
 
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Use connectDB() for a better connection handling
 import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
 
     const bookings = await db

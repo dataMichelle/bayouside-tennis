@@ -26,9 +26,8 @@ if (process.env.NODE_ENV === "development") {
 
 export async function connectDB() {
   try {
-    const client = await clientPromise;
-    console.log("MongoDB connected");
-    return client.db("bayou-side-tennis");
+    const client = await connectDB();
+    const db = client.db("bayou-side-tennis");
   } catch (error) {
     console.error("MongoDB connection error:", error.message);
     throw error;

@@ -1,11 +1,11 @@
-import clientPromise from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
+import { connectDB } from "@/lib/mongodb";
 
 export async function POST(req) {
   try {
     const { coachId } = await req.json(); // This is the Firebase UID
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+
+    const db = await connectDB();
 
     // First find the user by firebaseUid
     const user = await db.collection("users").findOne({ firebaseUid: coachId });
@@ -29,12 +29,19 @@ export async function POST(req) {
 
     return new Response(
       JSON.stringify({ rate: coach.rate, name: coach.name }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   } catch (error) {
+    console.error("Error in coach rate API:", error.message);
     return new Response(
       JSON.stringify({ error: error.message || "Server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   }
 }

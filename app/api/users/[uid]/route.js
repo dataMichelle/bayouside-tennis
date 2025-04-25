@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
 import { ObjectId } from "mongodb";
 
 export async function GET(_, { params }) {
-  const client = await clientPromise;
+  const client = await connectDB();
   const db = client.db("bayou-side-tennis");
-
   const user = await db
     .collection("users")
     .findOne({ _id: new ObjectId(params.uid) });

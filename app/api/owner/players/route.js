@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Use connectDB() for a better connection handling
 
 export async function GET() {
   try {
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
 
     const players = await db

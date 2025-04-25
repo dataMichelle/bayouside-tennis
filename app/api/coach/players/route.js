@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function POST(request) {
@@ -16,8 +16,7 @@ export async function POST(request) {
     }
 
     console.log("Fetching players for coachId:", coachId);
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     // Find bookings for the coach
     const bookings = await db
@@ -25,21 +24,13 @@ export async function POST(request) {
       .find({ coachId })
       .toArray();
 
-    console.log(
-      "Found bookings:",
-      bookings.length,
-      bookings.map((b) => ({
-        _id: b._id.toString(),
-        playerId: b.playerId,
-        status: b.status,
-      }))
-    );
-
-    // Get unique player IDs
     const playerIds = [...new Set(bookings.map((b) => b.playerId))];
     console.log("Unique player IDs:", playerIds);
 
-    // Fetch player details and latest payment status
+    if (playerIds.length === 0) {
+      return NextResponse.json({ players: [] }, { status: 200 });
+    }
+
     const players = await db
       .collection("users")
       .aggregate([
@@ -74,12 +65,8 @@ export async function POST(request) {
               {
                 $unwind: { path: "$payment", preserveNullAndEmptyArrays: true },
               },
-              {
-                $sort: { "payment.updatedAt": -1 }, // Latest payment first
-              },
-              {
-                $limit: 1, // Get only the latest payment
-              },
+              { $sort: { "payment.updatedAt": -1 } },
+              { $limit: 1 },
               {
                 $project: {
                   paymentStatus: "$payment.status",
@@ -121,7 +108,7 @@ export async function POST(request) {
 
     return NextResponse.json({ players }, { status: 200 });
   } catch (error) {
-    console.error("❌ API /coach/players error:", error.message);
+    console.error("❌ API /coach/players error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to fetch players" },
       { status: 500 }

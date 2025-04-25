@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Use connectDB() for a better connection handling
+import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // Ensure connection via connectDB()
 
+    // Fetch payments
     const payments = await db
       .collection("payments")
       .aggregate([

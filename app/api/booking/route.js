@@ -1,6 +1,7 @@
+// app/api/bookings/route.js
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { connectDB } from "@/lib/mongodb";
 
 export async function POST(req) {
   try {
@@ -27,8 +28,7 @@ export async function POST(req) {
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     const newBooking = {
       _id: new ObjectId(),

@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import clientPromise from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
+import { connectDB } from "@/lib/mongodb";
 
 export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
-
+    const db = await connectDB();
     const coaches = await db.collection("coaches").find({}).toArray();
 
     const sanitizedCoaches = coaches.map((coach) => ({
@@ -33,36 +31,38 @@ export async function POST(request) {
   try {
     const { coachId } = await request.json();
     if (!coachId) {
-      console.log("Missing coachId in request");
       return NextResponse.json(
         { error: "Coach ID is required" },
         { status: 400 }
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
-    console.log("Fetching user for firebaseUid:", coachId);
     const user = await db.collection("users").findOne({ firebaseUid: coachId });
     if (!user) {
-      console.log("User not found for firebaseUid:", coachId);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    console.log("Fetching coach for userId:", user._id.toString());
-    const coach = await db.collection("coaches").findOne({ userId: user._id.toString() });
+    const coach = await db
+      .collection("coaches")
+      .findOne({ userId: user._id.toString() });
     if (!coach) {
-      console.log("Coach not found for userId:", user._id.toString());
       return NextResponse.json({ error: "Coach not found" }, { status: 404 });
     }
 
-    // Fetch upcoming bookings (current month, as in schedule/route.js)
+    // Time range for current month
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59
+    );
 
-    console.log("Fetching bookings for coachId:", user._id.toString());
     const bookings = await db
       .collection("bookings")
       .aggregate([
@@ -70,7 +70,7 @@ export async function POST(request) {
           $match: {
             coachId: user._id.toString(),
             startTime: { $gte: startOfMonth, $lte: endOfMonth },
-            status: { $in: ["confirmed", "completed"] }, // Relaxed status
+            status: { $in: ["confirmed", "completed"] },
           },
         },
         {
@@ -132,35 +132,13 @@ export async function POST(request) {
       ])
       .toArray();
 
-    console.log(
-      "Found bookings:",
-      bookings.length,
-      bookings.map(b => ({
-        _id: b._id,
-        playerName: b.playerName,
-        bookingTime: b.bookingTime,
-        status: b.status,
-        startTime: b.startTime,
-      }))
-    );
-
-    // Fetch latest payments (limit 5)
-    console.log("Fetching payments for coachId:", user._id.toString());
     const bookingsForPayments = await db
       .collection("bookings")
-      .find({ coachId: user._id.toString(), status: { $in: ["confirmed", "completed"] } })
+      .find({
+        coachId: user._id.toString(),
+        status: { $in: ["confirmed", "completed"] },
+      })
       .toArray();
-
-    console.log(
-      "Bookings for payments:",
-      bookingsForPayments.length,
-      bookingsForPayments.map(b => ({
-        _id: b._id.toString(),
-        coachId: b.coachId,
-        status: b.status,
-        startTime: b.startTime,
-      }))
-    );
 
     const bookingIds = bookingsForPayments.map((booking) =>
       booking._id instanceof ObjectId ? booking._id : new ObjectId(booking._id)
@@ -175,7 +153,7 @@ export async function POST(request) {
         {
           $match: {
             bookingId: { $in: bookingIds },
-            status: { $in: ["completed", "pending"] }, // Relaxed status
+            status: { $in: ["completed", "pending"] },
           },
         },
         {
@@ -312,21 +290,6 @@ export async function POST(request) {
       ])
       .toArray();
 
-    console.log(
-      "Found payments:",
-      payments.length,
-      payments.map(p => ({
-        _id: p._id,
-        playerName: p.playerName,
-        amount: p.amount,
-        coachFee: p.coachFee,
-        bookingTime: p.bookingTime,
-        status: p.status,
-        createdAt: p.createdAt,
-      }))
-    );
-
-    // Format bookingTime for payments
     const formattedPayments = payments.map((payment) => {
       let formattedBookingTime = payment.bookingTime;
       if (payment.bookingTime !== "-") {
@@ -354,8 +317,11 @@ export async function POST(request) {
 
           formattedBookingTime = `${formattedStart} - ${formattedEnd}`;
         } catch (e) {
-          console.error("Error formatting bookingTime for payment:", payment._id, e);
-          formattedBookingTime = "-";
+          console.error(
+            "Error formatting bookingTime for payment:",
+            payment._id,
+            e
+          );
         }
       }
 
@@ -365,20 +331,12 @@ export async function POST(request) {
       };
     });
 
-    const response = {
+    return NextResponse.json({
       name: coach.name || "Unknown Coach",
       rate: coach.rate || "0",
       bookings,
       payments: formattedPayments,
-    };
-
-    console.log("Response data:", {
-      name: response.name,
-      rate: response.rate,
-      bookings: bookings.length,
-      payments: payments.length,
     });
-    return NextResponse.json(response, { status: 200 });
   } catch (error) {
     console.error("❌ API /coach POST error:", error.message);
     return NextResponse.json(

@@ -1,13 +1,10 @@
-// app/api/owner/coaches/route.js
-
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     const coaches = await db.collection("coaches").find({}).toArray();
     const userIds = coaches

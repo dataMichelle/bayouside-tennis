@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
 import { ObjectId } from "mongodb";
 
 export async function GET(request) {
@@ -11,7 +11,7 @@ export async function GET(request) {
       return NextResponse.json({ error: "Missing playerId" }, { status: 400 });
     }
 
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
 
     const bookings = await db

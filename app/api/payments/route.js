@@ -1,6 +1,6 @@
 // app/api/payments/route.js
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
 import { ObjectId } from "mongodb";
 
 export async function GET(request) {
@@ -11,7 +11,7 @@ export async function GET(request) {
       .filter((id) => id && id !== "null")
       .map((id) => new ObjectId(id));
 
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
 
     const payments = await db

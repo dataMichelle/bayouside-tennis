@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb"; // Update path if needed
 import { ObjectId } from "mongodb";
+import { connectDB } from "@/lib/mongodb"; // Uses centralized connection
 
 export async function POST(request) {
   try {
@@ -13,8 +13,7 @@ export async function POST(request) {
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     const booking = await db
       .collection("bookings")

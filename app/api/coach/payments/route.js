@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function POST(request) {
@@ -9,8 +9,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing coachId" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
     console.log("Fetching coach for coachId:", coachId);
     const coach = await db.collection("coaches").findOne({ userId: coachId });
@@ -25,21 +24,7 @@ export async function POST(request) {
       .find({ coachId, status: { $in: ["confirmed", "completed"] } })
       .toArray();
 
-    console.log(
-      "Found bookings:",
-      bookings.length,
-      bookings.map((b) => ({
-        _id: b._id.toString(),
-        coachId: b.coachId,
-        status: b.status,
-        startTime: b.startTime,
-        endTime: b.endTime,
-        totalCost: b.totalCost,
-      }))
-    );
-
     if (bookings.length === 0) {
-      console.log("No bookings found for coachId:", coachId);
       return NextResponse.json(
         { payments: [], totalCoachPayments: 0 },
         { status: 200 }
@@ -49,14 +34,9 @@ export async function POST(request) {
     const bookingIds = bookings.map((booking) =>
       booking._id instanceof ObjectId ? booking._id : new ObjectId(booking._id)
     );
-    console.log(
-      "Booking IDs:",
-      bookingIds.map((id) => id.toString())
-    );
 
     const settings = await db.collection("settings").findOne({});
     const coachFeeSplitPercentage = settings?.coachFeeSplitPercentage ?? 60;
-    console.log("Coach fee split percentage:", coachFeeSplitPercentage);
 
     const payments = await db
       .collection("payments")
@@ -149,7 +129,7 @@ export async function POST(request) {
           $project: {
             _id: 1,
             playerName: { $ifNull: ["$user.name", "Unknown"] },
-            amount: "$amount", // Assume amount is in dollars
+            amount: "$amount",
             coachFee: {
               $round: [
                 {
@@ -205,20 +185,6 @@ export async function POST(request) {
       ])
       .toArray();
 
-    console.log(
-      "Found payments:",
-      payments.length,
-      payments.map((p) => ({
-        _id: p._id.toString(),
-        bookingId: p.booking?._id?.toString(),
-        playerName: p.playerName,
-        amount: p.amount,
-        coachFee: p.coachFee,
-        debug: p.debug,
-      }))
-    );
-
-    // Format bookingTime to 12-hour format and calculate total coach payments
     const formattedPayments = payments.map((payment) => {
       let formattedBookingTime = payment.bookingTime;
       if (payment.bookingTime !== "-") {
@@ -261,25 +227,11 @@ export async function POST(request) {
       };
     });
 
-    // Calculate total coach payments
     const totalCoachPayments = formattedPayments.reduce(
       (sum, payment) => sum + (payment.coachFee || 0),
       0
     );
 
-    console.log(
-      `Fetched ${formattedPayments.length} payments`,
-      formattedPayments.map((p) => ({
-        _id: p._id.toString(),
-        playerName: p.playerName,
-        amount: p.amount,
-        coachFee: p.coachFee,
-        bookingTime: p.bookingTime,
-        status: p.status,
-        createdAt: p.createdAt,
-        debug: p.debug,
-      }))
-    );
     return NextResponse.json(
       { payments: formattedPayments, totalCoachPayments },
       { status: 200 }

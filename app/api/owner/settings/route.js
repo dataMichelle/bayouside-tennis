@@ -1,14 +1,14 @@
 // app/api/owner/settings/route.js
 
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
 import { ObjectId } from "mongodb";
 
 const SETTINGS_ID = new ObjectId("67f04bfe9f9297149eb71237"); // use your actual ID
 
 export async function GET() {
   try {
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
     const settings = await db
       .collection("settings")
@@ -31,7 +31,7 @@ export async function GET() {
 export async function PATCH(request) {
   try {
     const data = await request.json();
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
 
     const result = await db.collection("settings").updateOne(

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function POST(request) {
@@ -13,15 +13,12 @@ export async function POST(request) {
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
-
+    const db = await connectDB();
     const startDate = new Date(startOfMonth);
     const endDate = new Date(endOfMonth);
 
     // Look up user by firebaseUid
     const user = await db.collection("users").findOne({ firebaseUid: coachId });
-
     if (!user) {
       return NextResponse.json(
         { error: "Coach user not found" },
@@ -32,7 +29,6 @@ export async function POST(request) {
     const coach = await db
       .collection("coaches")
       .findOne({ userId: user._id.toString() });
-
     if (!coach) {
       return NextResponse.json({ error: "Coach not found" }, { status: 404 });
     }
@@ -42,7 +38,7 @@ export async function POST(request) {
       .aggregate([
         {
           $match: {
-            coachId: coach.userId, // this is the user's _id as string
+            coachId: coach.userId,
             startTime: { $gte: startDate, $lte: endDate },
             status: "confirmed",
           },

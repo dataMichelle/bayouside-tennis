@@ -1,11 +1,11 @@
+// app/api/bookings/[id]/route.js
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { connectDB } from "@/lib/mongodb";
 
 export async function PATCH(request, context) {
   try {
-    // Await params to fix Next.js error
-    const { id } = await context.params;
+    const { id } = context.params;
     const { status } = await request.json();
 
     if (!id || !status) {
@@ -16,14 +16,13 @@ export async function PATCH(request, context) {
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
 
-    // If status is "confirmed", verify payment exists
     if (status === "confirmed") {
       const payment = await db
         .collection("payments")
         .findOne({ bookingId: id.toString() });
+
       if (!payment) {
         console.error("No payment found for bookingId:", { id });
         return NextResponse.json(

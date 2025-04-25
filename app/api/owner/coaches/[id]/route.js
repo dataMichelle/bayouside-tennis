@@ -1,7 +1,5 @@
-// app/api/owner/coaches/[id]/route.js
-
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function PATCH(request, { params }) {
@@ -9,8 +7,7 @@ export async function PATCH(request, { params }) {
     const id = params.id;
     const updates = await request.json();
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB(); // Connect to DB via connectDB()
 
     const updateFields = {};
     if (typeof updates.name === "string") updateFields.name = updates.name;

@@ -1,12 +1,12 @@
 // app/api/signup/route.js
-import clientPromise from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, phone, password, uid, role } = body; // Client sends 'uid'
+    const { name, email, phone, password, uid, role } = body;
 
     // Strict validation
     if (!name || !email || !phone || !password || !uid || !role) {
@@ -32,8 +32,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("bayou-side-tennis");
+    const db = await connectDB();
     const users = db.collection("users");
 
     const existingUser = await users.findOne({ email });
@@ -46,7 +45,7 @@ export async function POST(request) {
 
     const newUser = {
       _id: new ObjectId(),
-      firebaseUid: uid, // Changed from uid to firebaseUid
+      firebaseUid: uid,
       name,
       email,
       phone,

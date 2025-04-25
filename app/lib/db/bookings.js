@@ -1,9 +1,10 @@
-import clientPromise from "../mongodb";
+import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
 import { ObjectId } from "mongodb";
 
 export async function getBookingsForPlayer(playerId) {
-  const client = await clientPromise;
+  const client = await connectDB();
   const db = client.db("bayou-side-tennis");
+
   return await db
     .collection("bookings")
     .find({ playerId: new ObjectId(playerId) })
@@ -11,7 +12,7 @@ export async function getBookingsForPlayer(playerId) {
 }
 
 export async function getBookingsForCoach(coachId) {
-  const client = await clientPromise;
+  const client = await connectDB();
   const db = client.db("bayou-side-tennis");
   return await db
     .collection("bookings")

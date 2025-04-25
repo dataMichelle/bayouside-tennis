@@ -1,5 +1,5 @@
 // app/lib/mongodb-queries.js
-import clientPromise from "./mongodb";
+import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
 import { ObjectId } from "mongodb";
 
 // --------------------
@@ -7,7 +7,7 @@ import { ObjectId } from "mongodb";
 // --------------------
 export async function getPaymentsForCoach(coachId) {
   try {
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
 
     const bookings = await db
@@ -103,7 +103,7 @@ export async function getPaymentsForCoach(coachId) {
 // --------------------
 export async function getPlayersForCoach(coachId) {
   try {
-    const client = await clientPromise;
+    const client = await connectDB();
     const db = client.db("bayou-side-tennis");
 
     const bookings = await db
