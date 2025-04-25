@@ -24,10 +24,12 @@ if (process.env.NODE_ENV === "development") {
   clientPromise = client.connect();
 }
 
+// Remove the unnecessary recursive call to connectDB()
 export async function connectDB() {
   try {
-    const client = await connectDB();
+    const client = await clientPromise; // Use the existing clientPromise
     const db = client.db("bayou-side-tennis");
+    return db; // Return the database instance
   } catch (error) {
     console.error("MongoDB connection error:", error.message);
     throw error;
