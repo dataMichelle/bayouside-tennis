@@ -10,6 +10,15 @@ export async function GET() {
     if (!settings) {
       throw new Error("Settings not found");
     }
+
+    // Validate required fields exist
+    if (
+      typeof settings.courtRentalCost !== "number" ||
+      typeof settings.ballMachineCost !== "number"
+    ) {
+      throw new Error("Missing required settings values");
+    }
+
     return NextResponse.json({
       courtRentalCost: settings.courtRentalCost,
       ballMachineCost: settings.ballMachineCost,
