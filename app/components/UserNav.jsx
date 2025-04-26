@@ -1,4 +1,3 @@
-// components/UserNav.jsx
 "use client";
 
 import Link from "next/link";
@@ -7,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useUser } from "@/context/UserContext";
-import { roleLinks, authLinks } from "@/utils/navLinks";
 import { getUserNavLinks } from "@/utils/navLinks";
 
 export default function UserNav({ closeMenu, isMobile }) {
@@ -18,7 +16,7 @@ export default function UserNav({ closeMenu, isMobile }) {
   const userRole = userData?.role || role || "player";
 
   const links = useMemo(() => {
-    if (loading) return getUserNavLinks(); // fallback defaults to "player" + not logged in
+    if (loading) return getUserNavLinks(); // Fallback defaults to "player" + not logged in
     return getUserNavLinks(userRole, isLoggedIn);
   }, [loading, userRole, isLoggedIn]);
 
@@ -36,7 +34,14 @@ export default function UserNav({ closeMenu, isMobile }) {
           <button
             key={link.label}
             onClick={() => {
-              closeMenu();
+              if (typeof closeMenu === "function") {
+                closeMenu();
+              } else if (process.env.NODE_ENV === "development") {
+                console.warn(
+                  "UserNav: closeMenu is not a function. Ensure the parent component provides a valid closeMenu prop for mobile menu functionality.",
+                  { closeMenu, isMobile }
+                );
+              }
               handleLogout();
             }}
             className="text-black text-sm text-left"
@@ -47,7 +52,11 @@ export default function UserNav({ closeMenu, isMobile }) {
           <Link
             key={link.label}
             href={link.path}
-            onClick={closeMenu}
+            onClick={() => {
+              if (typeof closeMenu === "function") {
+                closeMenu();
+              }
+            }}
             className={`text-black text-sm rounded-md px-2 py-1 ${
               isMobile
                 ? "hover:bg-taupe-400 hover:text-white"
