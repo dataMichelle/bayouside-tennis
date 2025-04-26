@@ -25,17 +25,19 @@ export default function OwnerSchedulePage() {
             toDate(event.start),
             "America/Chicago",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
-          ); // e.g., "2025-04-22T15:00:00-05:00"
+          );
           const endCDT = formatInTimeZone(
             toDate(event.end),
             "America/Chicago",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
-          ); // e.g., "2025-04-22T16:00:00-05:00"
+          );
 
           return {
             ...event,
             start: startCDT,
             end: endCDT,
+            backgroundColor: event.ballMachine ? "#FF6B6B" : "#4A90E2", // Red for ball machine, blue for others
+            borderColor: event.ballMachine ? "#FF6B6B" : "#4A90E2",
           };
         });
 

@@ -1,12 +1,9 @@
-// app/api/owner/schedule/route.js
-
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb"; // Use connectDB() for a better connection handling
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
-    const client = await connectDB();
     const db = await connectDB();
 
     const bookings = await db
@@ -47,15 +44,29 @@ export async function GET() {
           $project: {
             start: "$startTime",
             end: "$endTime",
+            ballMachine: "$ballMachine",
             title: {
               $cond: {
-                if: "$ballMachine",
+                if: {
+                  $and: [
+                    { $eq: ["$player", null] },
+                    { $eq: ["$coach", null] },
+                    "$ballMachine",
+                  ],
+                },
                 then: "Ball Machine Rental",
                 else: {
                   $concat: [
                     { $ifNull: ["$player.name", "Player"] },
                     " w/ ",
-                    { $ifNull: ["$coach.name", "Coach"] },
+                    { $ifNull: ["$coach.name", "No Coach"] },
+                    {
+                      $cond: [
+                        { $eq: ["$ballMachine", true] },
+                        " (Ball Machine)",
+                        "",
+                      ],
+                    },
                   ],
                 },
               },
