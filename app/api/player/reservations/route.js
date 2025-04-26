@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb"; // Ensure the connection is handled via connectDB()
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function GET(request) {
@@ -11,8 +11,7 @@ export async function GET(request) {
       return NextResponse.json({ error: "Missing playerId" }, { status: 400 });
     }
 
-    const db = await connectDB(); // Ensure the connection is handled via connectDB()
-
+    const db = await connectDB();
     const bookings = await db
       .collection("bookings")
       .find({ playerId })
@@ -36,9 +35,17 @@ export async function GET(request) {
       }, {});
     }
 
+    // Map bookings to include coach info and ensure costBreakdown is included
     const bookingsWithCoach = bookings.map((booking) => ({
       ...booking,
+      _id: booking._id.toString(), // Convert ObjectId to string for frontend
       coach: coachesMap[booking.coachId] || null,
+      totalCost: booking.totalCost || 0,
+      costBreakdown: booking.costBreakdown || {
+        coachFee: 0,
+        courtFee: 0,
+        machineFee: 0,
+      },
     }));
 
     return NextResponse.json({ bookings: bookingsWithCoach }, { status: 200 });

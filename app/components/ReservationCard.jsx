@@ -1,4 +1,3 @@
-import { calculateCostBreakdown } from "@/utils/cost";
 import { formatTimeTo12HourCDT } from "@/utils/time";
 
 export default function ReservationCard({
@@ -7,18 +6,13 @@ export default function ReservationCard({
   isProcessing,
   onPayNow,
 }) {
-  const { coachFee, courtFee, machineFee, total } = calculateCostBreakdown({
-    slots: [
-      {
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-        day: booking.day,
-      },
-    ],
-    coach,
-    settings: {},
-    ballMachine: booking.ballMachine || false,
-  });
+  // Use stored cost breakdown, defaulting to 0 for older bookings
+  const costBreakdown = booking.costBreakdown || {
+    coachFee: 0,
+    courtFee: 0,
+    machineFee: 0,
+  };
+  const totalCost = booking.totalCost || 0;
 
   return (
     <li className="border-b pb-2">
@@ -35,23 +29,23 @@ export default function ReservationCard({
       <p>
         <strong>Coach:</strong> {coach?.name || booking.coachName || "No Coach"}
       </p>
-
       <p>
         <strong>Ball Machine:</strong> {booking.ballMachine ? "Yes" : "No"}
       </p>
       <div>
         <strong>Cost Breakdown:</strong>
         <ul className="list-none ml-4">
-          <li>Coach Fee: ${coachFee.toFixed(2)}</li>
-          <li>Court Rental: ${courtFee.toFixed(2)}</li>
-          <li>Ball Machine: ${machineFee.toFixed(2)}</li>
+          <li>Coach Fee: ${costBreakdown.coachFee.toFixed(2)}</li>
+          <li>Court Rental: ${costBreakdown.courtFee.toFixed(2)}</li>
+          <li>Ball Machine: ${costBreakdown.machineFee.toFixed(2)}</li>
           <li>
-            <strong>Total: ${total.toFixed(2)}</strong>
+            <strong>Total: ${totalCost.toFixed(2)}</strong>
           </li>
         </ul>
       </div>
       <p>
-        <strong>Status:</strong> {booking.status}
+        <strong>Status:</strong>{" "}
+        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
         {booking.status === "pending" && (
           <button
             onClick={onPayNow}

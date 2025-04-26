@@ -29,6 +29,7 @@ export default function ReservationsPage() {
       );
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+      console.log("Fetched bookings:", data.bookings);
       setBookings(data.bookings || []);
       setFetchError(null);
     } catch (err) {
@@ -59,6 +60,7 @@ export default function ReservationsPage() {
       );
     } catch (err) {
       console.error("Payment initiation failed:", err.message);
+      setFetchError(`Payment failed: ${err.message}`);
     } finally {
       setIsProcessingId(null);
     }
@@ -107,7 +109,6 @@ export default function ReservationsPage() {
   useEffect(() => {
     if (firebaseUser && userData?.id) {
       fetchReservations();
-    } else {
     }
   }, [firebaseUser, userData?.id, fetchReservations]);
 
@@ -115,7 +116,6 @@ export default function ReservationsPage() {
   useEffect(() => {
     if (userData?.id) {
       verifyAndRefresh();
-    } else {
     }
   }, [verifyAndRefresh, userData?.id]);
 
@@ -138,18 +138,20 @@ export default function ReservationsPage() {
   return (
     <PageContainer title="Your Reservations">
       {fetchError && <p className="text-red-600">Error: {fetchError}</p>}
-      {bookings.length === 0 && !fetchError && <p>No reservations found.</p>}
-      <ul className="space-y-4">
-        {bookings.map((booking) => (
-          <ReservationCard
-            key={booking._id}
-            booking={booking}
-            coach={booking.coach || null}
-            onPayNow={() => handlePayNow(booking)}
-            isProcessing={isProcessingId === booking._id}
-          />
-        ))}
-      </ul>
+      {bookings.length === 0 && !fetchError}
+      {bookings.length > 0 && (
+        <ul className="space-y-4">
+          {bookings.map((booking) => (
+            <ReservationCard
+              key={booking._id}
+              booking={booking}
+              coach={booking.coach || null}
+              onPayNow={() => handlePayNow(booking)}
+              isProcessing={isProcessingId === booking._id}
+            />
+          ))}
+        </ul>
+      )}
     </PageContainer>
   );
 }

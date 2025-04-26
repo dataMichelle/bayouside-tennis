@@ -72,10 +72,14 @@ export default function BookingPage() {
           const coachData = await coachRes.json();
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
+          console.log("Fetched settings:", settingsData);
 
           setCoaches(Array.isArray(coachData) ? coachData : []);
           setBookings(bookingsData.bookings || []);
-          setSettings(settingsData);
+          setSettings({
+            courtRentalCost: settingsData.courtRentalCost || 0,
+            ballMachineCost: settingsData.ballMachineCost || 0,
+          });
 
           const success = searchParams.get("success");
           const bookingIds = searchParams.get("bookingIds");
@@ -89,13 +93,12 @@ export default function BookingPage() {
           setError(err.message);
         }
       } else {
-        // Show toast and redirect to login
         toast.error("Please log in to access the booking page.", {
           duration: 3000,
         });
         setTimeout(() => {
           router.push("/auth/login");
-        }, 1500); //
+        }, 1500);
       }
       setLoading(false);
     });
@@ -247,65 +250,97 @@ export default function BookingPage() {
 
   const handleBookingConfirm = async () => {
     if (!user || selectedSlots.length === 0) return;
+
     try {
       const sortedSlots = [...selectedSlots].sort((a, b) => a.date - b.date);
       const mergedBookings = [];
       let currentBooking = {
-        ...sortedSlots[0],
-        endTime: sortedSlots[0].endTime,
+        slots: [sortedSlots[0]], // Store all slots for this booking
+        startTime: sortedSlots[0].date,
+        endTime: new Date(sortedSlots[0].date.getTime() + 60 * 60 * 1000), // Default 1 hour
+        day: sortedSlots[0].day,
+        totalCost: 0,
       };
 
+      const coach = coaches.find((c) => c._id === selectedCoach);
+      if (!coach && selectedCoach !== "no-coach") {
+        throw new Error("Selected coach not found.");
+      }
+
       for (let i = 1; i < sortedSlots.length; i++) {
-        const prevEnd = new Date(currentBooking.date);
-        prevEnd.setHours(
-          parseInt(currentBooking.endTime.split(":")[0]),
-          0,
-          0,
-          0
-        );
+        const prevEnd = new Date(currentBooking.endTime);
         const nextStart = new Date(sortedSlots[i].date);
-        nextStart.setHours(
-          parseInt(sortedSlots[i].startTime.split(":")[0]),
-          0,
-          0,
-          0
-        );
 
         if (
           prevEnd.getTime() === nextStart.getTime() &&
           currentBooking.day === sortedSlots[i].day
         ) {
-          currentBooking.endTime = sortedSlots[i].endTime;
+          // Extend the booking
+          currentBooking.slots.push(sortedSlots[i]);
+          currentBooking.endTime = new Date(
+            sortedSlots[i].date.getTime() + 60 * 60 * 1000
+          );
         } else {
+          // Finalize current booking and start a new one
+          const cost = calculateCostBreakdown({
+            slots: currentBooking.slots.map((slot) => ({
+              startTime: slot.date.toISOString(),
+              endTime: new Date(
+                slot.date.getTime() + 60 * 60 * 1000
+              ).toISOString(),
+            })),
+            coach: selectedCoach === "no-coach" ? null : coach,
+            settings,
+            ballMachine,
+          });
+          currentBooking.totalCost = cost.total;
           mergedBookings.push({ ...currentBooking });
+
+          // Start new booking
           currentBooking = {
-            ...sortedSlots[i],
-            endTime: sortedSlots[i].endTime,
+            slots: [sortedSlots[i]],
+            startTime: sortedSlots[i].date,
+            endTime: new Date(sortedSlots[i].date.getTime() + 60 * 60 * 1000),
+            day: sortedSlots[i].day,
+            totalCost: 0,
           };
         }
       }
+
+      // Finalize the last booking
+      const cost = calculateCostBreakdown({
+        slots: currentBooking.slots.map((slot) => ({
+          startTime: slot.date.toISOString(),
+          endTime: new Date(slot.date.getTime() + 60 * 60 * 1000).toISOString(),
+        })),
+        coach: selectedCoach === "no-coach" ? null : coach,
+        settings,
+        ballMachine,
+      });
+      currentBooking.totalCost = cost.total;
       mergedBookings.push({ ...currentBooking });
 
-      const coach = coaches.find((c) => c._id === selectedCoach);
-      const bookingPromises = mergedBookings.map((slot) => {
-        const endTime = new Date(slot.date);
-        endTime.setHours(parseInt(slot.endTime.split(":")[0]), 0, 0, 0);
+      const bookingPromises = mergedBookings.map((booking) => {
+        const bookingSlots = booking.slots.map((slot) => ({
+          startTime: slot.date.toISOString(),
+          endTime: new Date(slot.date.getTime() + 60 * 60 * 1000).toISOString(),
+        }));
+
         const bookingData = {
           playerId: mongoUserId,
           coachId: selectedCoach === "no-coach" ? null : coach?.userId,
-          day: slot.day,
-          startTime: slot.date.toISOString(),
-          endTime: endTime.toISOString(),
+          day: booking.day,
+          startTime: booking.startTime.toISOString(),
+          endTime: booking.endTime.toISOString(),
+          slots: bookingSlots,
           ballMachine,
           status: "pending",
-          totalCost: calculateCostBreakdown({
-            slots: [slot],
-            coach,
-            settings,
-            ballMachine,
-          }).total,
+          totalCost: booking.totalCost,
           createdAt: new Date().toISOString(),
         };
+
+        console.log("Sending booking data:", bookingData);
+
         return fetch("/api/booking", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -316,7 +351,10 @@ export default function BookingPage() {
       const responses = await Promise.all(bookingPromises);
       const bookingIds = [];
       for (const res of responses) {
-        if (!res.ok) throw new Error("Failed to save booking");
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(`Failed to save booking: ${errorData.error}`);
+        }
         const data = await res.json();
         bookingIds.push(data.id);
       }
@@ -325,12 +363,13 @@ export default function BookingPage() {
       setPaymentModalOpen(true);
     } catch (err) {
       console.error("Booking confirm error:", err.message);
-      setError(err.message);
+      toast.error(`Failed to confirm booking: ${err.message}`);
     }
   };
 
   const handlePaymentConfirm = async () => {
     if (!pendingBookingIds.length) return;
+
     try {
       const costBreakdown = calculateCostBreakdown({
         slots: selectedSlots,
@@ -341,7 +380,7 @@ export default function BookingPage() {
 
       await initiatePayment(
         pendingBookingIds,
-        costBreakdown.total,
+        costBreakdown.total, // Send the total cost here
         `Payment for ${selectedSlots.length} bookings`,
         mongoUserId
       );
