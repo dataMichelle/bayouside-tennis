@@ -393,9 +393,9 @@ export default function BookingPage() {
     <>
       <Toaster position="top-center" /> {/* Add Toaster component */}
       {user ? (
-        <main className="min-h-screen p-6">
+        <main className="min-h-screen p-6 pt-25">
           <h1 className="text-3xl font-bold text-primary-700 mb-6 text-center">
-            Booking Page
+            Reserve a Court
           </h1>
           <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
             <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>

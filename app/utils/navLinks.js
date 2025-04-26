@@ -6,7 +6,7 @@ export const baseLinks = [
   { path: "/about", label: "About Us" },
   { path: "/coaches", label: "Coaches" },
   { path: "/players/info", label: "Player Info" },
-  { path: "/booking", label: "Book Court" },
+  { path: "/booking", label: "Reserve Court" },
 ];
 
 // Links specific to roles

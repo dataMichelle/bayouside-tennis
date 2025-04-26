@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import PageContainer from "@/components/PageContainer";
 
 export default function Players() {
   const [settings, setSettings] = useState({
@@ -38,11 +39,8 @@ export default function Players() {
   }, []);
 
   return (
-    <main className="p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        Player Information
-      </h1>
-      <div className="bg-swamp-200 dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
+    <PageContainer title="Player Information">
+      <div className=" dark:bg-neutrals-800 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
         <section className="space-y-8">
           {/* Rules of Conduct */}
           <div>
@@ -140,6 +138,6 @@ export default function Players() {
           </div>
         </section>
       </div>
-    </main>
+    </PageContainer>
   );
 }
