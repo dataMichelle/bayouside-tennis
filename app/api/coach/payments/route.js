@@ -11,14 +11,8 @@ export async function POST(request) {
 
     const db = await connectDB();
 
-    console.log("Fetching coach for coachId:", coachId);
     const coach = await db.collection("coaches").findOne({ userId: coachId });
-    console.log(
-      "Coach found:",
-      coach ? { userId: coach.userId, rate: coach.rate } : "No coach found"
-    );
 
-    console.log("Fetching bookings for coachId:", coachId);
     const bookings = await db
       .collection("bookings")
       .find({ coachId, status: { $in: ["confirmed", "completed"] } })

@@ -5,7 +5,6 @@ export async function GET() {
   try {
     const db = await connectDB();
 
-    console.log("Fetching settings for ballMachineCost and courtRentalCost");
     const settings = await db.collection("settings").findOne({});
     const ballMachineCost = settings?.ballMachineCost
       ? Number(settings.ballMachineCost) // Keep as number, no formatting
@@ -19,7 +18,6 @@ export async function GET() {
       courtRentalCost,
     };
 
-    console.log("Response data:", response);
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
     console.error("❌ API /player/info GET error:", error.message);

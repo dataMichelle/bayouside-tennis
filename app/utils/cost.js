@@ -19,17 +19,6 @@ export function calculateCostBreakdown({
     return { total: 0, coachFee: 0, courtFee: 0, machineFee: 0 };
   }
 
-  // Log input values for debugging
-  console.log("calculateCostBreakdown inputs:", {
-    slots,
-    coach: coach ? { rate: coach.rate } : null,
-    settings: {
-      courtRentalCost: settings.courtRentalCost,
-      ballMachineCost: settings.ballMachineCost,
-    },
-    ballMachine,
-  });
-
   // Process each slot
   slots.forEach((slot, index) => {
     // Calculate duration in hours
@@ -76,14 +65,6 @@ export function calculateCostBreakdown({
 
   // Calculate total
   const total = coachFee + courtFee + machineFee;
-
-  // Log calculated fees
-  console.log("calculateCostBreakdown output:", {
-    coachFee,
-    courtFee,
-    machineFee,
-    total,
-  });
 
   // Return formatted breakdown
   return {

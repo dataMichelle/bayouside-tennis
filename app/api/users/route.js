@@ -4,23 +4,18 @@ import { getUserByFirebaseUid } from "@/lib/db/users";
 
 export async function GET(request) {
   try {
-    console.log("✅ /api/users route hit");
-
     const authHeader = request.headers.get("authorization");
 
     // Check for authorization header
     if (!authHeader?.startsWith("Bearer ")) {
-      console.log("❌ Missing or invalid Authorization header");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const token = authHeader.split(" ")[1];
-    console.log("🔑 Verifying Firebase ID token...");
 
     // Verify Firebase ID Token
     const decodedToken = await adminAuth.verifyIdToken(token);
     const firebaseUid = decodedToken.uid;
-    console.log("👤 Firebase UID decoded:", firebaseUid);
 
     // Ensure function is available and fetch the user
     if (typeof getUserByFirebaseUid !== "function") {
@@ -40,7 +35,6 @@ export async function GET(request) {
     }
 
     // Successful retrieval
-    console.log("✅ User found:", user.name || user.email || user._id);
 
     return NextResponse.json({
       _id: user._id.toString(),

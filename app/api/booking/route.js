@@ -93,8 +93,6 @@ export async function POST(req) {
       updatedAt: new Date(),
     };
 
-    console.log("Inserting booking:", newBooking);
-
     const result = await db.collection("bookings").insertOne(newBooking);
     if (result.acknowledged) {
       return NextResponse.json({

@@ -14,8 +14,6 @@ export async function GET() {
       .collection("settings")
       .findOne({ _id: SETTINGS_ID });
 
-    console.log("Fetched settings:", settings); // Log fetched settings to check the response
-
     if (!settings)
       return NextResponse.json(
         { error: "Settings not found" },

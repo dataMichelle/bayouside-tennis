@@ -72,7 +72,6 @@ export default function BookingPage() {
           const coachData = await coachRes.json();
           const bookingsData = await bookingsRes.json();
           const settingsData = await settingsRes.json();
-          console.log("Fetched settings:", settingsData);
 
           setCoaches(Array.isArray(coachData) ? coachData : []);
           setBookings(bookingsData.bookings || []);
@@ -338,8 +337,6 @@ export default function BookingPage() {
           totalCost: booking.totalCost,
           createdAt: new Date().toISOString(),
         };
-
-        console.log("Sending booking data:", bookingData);
 
         return fetch("/api/booking", {
           method: "POST",

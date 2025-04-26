@@ -29,7 +29,6 @@ export default function ReservationsPage() {
       );
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      console.log("Fetched bookings:", data.bookings);
       setBookings(data.bookings || []);
       setFetchError(null);
     } catch (err) {

@@ -223,10 +223,6 @@ export async function GET() {
       return payment;
     });
 
-    console.log(
-      `Fetched ${formattedPayments.length} payments`,
-      formattedPayments
-    );
     return NextResponse.json(formattedPayments);
   } catch (error) {
     console.error("GET /api/owner/payments error:", {

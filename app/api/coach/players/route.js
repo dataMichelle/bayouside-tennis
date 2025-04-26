@@ -8,14 +8,12 @@ export async function POST(request) {
     const coachId = body.coachId;
 
     if (!coachId) {
-      console.log("Missing coachId in request");
       return NextResponse.json(
         { error: "Coach ID is required" },
         { status: 400 }
       );
     }
 
-    console.log("Fetching players for coachId:", coachId);
     const db = await connectDB();
 
     // Find bookings for the coach
@@ -25,7 +23,6 @@ export async function POST(request) {
       .toArray();
 
     const playerIds = [...new Set(bookings.map((b) => b.playerId))];
-    console.log("Unique player IDs:", playerIds);
 
     if (playerIds.length === 0) {
       return NextResponse.json({ players: [] }, { status: 200 });
@@ -93,18 +90,6 @@ export async function POST(request) {
         },
       ])
       .toArray();
-
-    console.log(
-      "Found players:",
-      players.length,
-      players.map((p) => ({
-        _id: p._id,
-        name: p.name,
-        email: p.email,
-        phone: p.phone,
-        paymentStatus: p.paymentStatus || "N/A",
-      }))
-    );
 
     return NextResponse.json({ players }, { status: 200 });
   } catch (error) {

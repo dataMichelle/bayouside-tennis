@@ -348,7 +348,6 @@ export async function GET() {
       };
     });
 
-    console.log(`Fetched ${formattedPlayers.length} players`, formattedPlayers);
     return NextResponse.json(formattedPlayers);
   } catch (error) {
     console.error("GET /api/owner/players error:", {

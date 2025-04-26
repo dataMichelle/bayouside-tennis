@@ -21,7 +21,6 @@ export default function OwnerDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        console.log("OwnerDashboard - Fetching dashboard data");
         const res = await fetch("/api/owner/dashboard");
         if (!res.ok) {
           const errorText = await res.text();
@@ -30,7 +29,6 @@ export default function OwnerDashboard() {
           );
         }
         const result = await res.json();
-        console.log("OwnerDashboard - Data fetched:", result);
         setData(result);
       } catch (err) {
         console.error("OwnerDashboard - Error:", err.message);
