@@ -1,29 +1,38 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb"; // Use connectDB() for a better connection handling
+import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
-    const db = await connectDB(); // Ensure connection via connectDB()
+    const db = await connectDB();
+    console.log("Connected to MongoDB");
 
-    // Fetch payments
     const payments = await db
       .collection("payments")
       .aggregate([
         { $match: { status: "completed" } },
-        // Convert userId to ObjectId if valid
         {
           $addFields: {
             userIdObj: {
               $cond: [
-                { $regexMatch: { input: "$userId", regex: /^[a-f\d]{24}$/i } },
+                {
+                  $and: [
+                    { $ne: ["$userId", null] },
+                    { $ne: ["$userId", ""] },
+                    {
+                      $regexMatch: {
+                        input: "$userId",
+                        regex: /^[a-f\d]{24}$/i,
+                      },
+                    },
+                  ],
+                },
                 { $toObjectId: "$userId" },
                 null,
               ],
             },
           },
         },
-        // Lookup user details
         {
           $lookup: {
             from: "users",
@@ -33,7 +42,6 @@ export async function GET() {
           },
         },
         { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-        // Lookup booking details
         {
           $lookup: {
             from: "bookings",
@@ -43,7 +51,6 @@ export async function GET() {
           },
         },
         { $unwind: { path: "$booking", preserveNullAndEmptyArrays: true } },
-        // Lookup coach details
         {
           $lookup: {
             from: "coaches",
@@ -53,7 +60,6 @@ export async function GET() {
           },
         },
         { $unwind: { path: "$coach", preserveNullAndEmptyArrays: true } },
-        // Lookup settings
         {
           $lookup: {
             from: "settings",
@@ -62,7 +68,6 @@ export async function GET() {
           },
         },
         { $unwind: { path: "$settings", preserveNullAndEmptyArrays: true } },
-        // Convert coach.rate to double and calculate duration
         {
           $addFields: {
             coachRateNumeric: {
@@ -108,7 +113,6 @@ export async function GET() {
             },
           },
         },
-        // Project final fields
         {
           $project: {
             _id: 1,
@@ -163,8 +167,11 @@ export async function GET() {
               $cond: [
                 {
                   $and: [
+                    { $ne: ["$booking", null] },
                     { $ne: ["$booking.startTime", null] },
                     { $ne: ["$booking.endTime", null] },
+                    { $eq: [{ $type: "$booking.startTime" }, "string"] },
+                    { $eq: [{ $type: "$booking.endTime" }, "string"] },
                   ],
                 },
                 {
@@ -194,31 +201,43 @@ export async function GET() {
       ])
       .toArray();
 
-    // Transform bookingTime to 12-hour format
     const formattedPayments = payments.map((payment) => {
-      if (payment.bookingTime !== "N/A") {
-        const [start, end] = payment.bookingTime.split(" - ");
-        const [date, startTime] = start.split(" ");
-        const startDate = new Date(`${date}T${startTime}:00-05:00`); // Assuming America/Chicago (UTC-5)
-        const endDate = new Date(`${date}T${end}:00-05:00`);
+      if (payment.bookingTime && payment.bookingTime !== "N/A") {
+        try {
+          const [start, end] = payment.bookingTime.split(" - ");
+          const [date, startTime] = start.split(" ");
+          const startDate = new Date(`${date}T${startTime}:00-05:00`);
+          const endDate = new Date(`${date}T${end}:00-05:00`);
 
-        const formattedStart = startDate.toLocaleString("en-US", {
-          hour: "numeric",
-          minute: "numeric",
-          hour12: true,
-          timeZone: "America/Chicago",
-        });
-        const formattedEnd = endDate.toLocaleString("en-US", {
-          hour: "numeric",
-          minute: "numeric",
-          hour12: true,
-          timeZone: "America/Chicago",
-        });
+          if (isNaN(startDate) || isNaN(endDate)) {
+            throw new Error("Invalid date format");
+          }
 
-        return {
-          ...payment,
-          bookingTime: `${date} ${formattedStart} - ${formattedEnd}`,
-        };
+          const formattedStart = startDate.toLocaleString("en-US", {
+            hour: "numeric",
+            minute: "numeric",
+            hour12: true,
+            timeZone: "America/Chicago",
+          });
+          const formattedEnd = endDate.toLocaleString("en-US", {
+            hour: "numeric",
+            minute: "numeric",
+            hour12: true,
+            timeZone: "America/Chicago",
+          });
+
+          return {
+            ...payment,
+            bookingTime: `${date} ${formattedStart} - ${formattedEnd}`,
+          };
+        } catch (err) {
+          console.error("Error formatting bookingTime:", {
+            paymentId: payment._id,
+            bookingTime: payment.bookingTime,
+            error: err.message,
+          });
+          return { ...payment, bookingTime: "Invalid Date" };
+        }
       }
       return payment;
     });
@@ -228,6 +247,9 @@ export async function GET() {
     console.error("GET /api/owner/payments error:", {
       message: error.message,
       stack: error.stack,
+      name: error.name,
+      code: error.code,
+      uri: process.env.MONGODB_URI ? "MONGODB_URI set" : "MONGODB_URI missing",
     });
     return NextResponse.json(
       {

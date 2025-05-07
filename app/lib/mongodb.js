@@ -1,6 +1,5 @@
 import { MongoClient } from "mongodb";
 
-// The MongoDB URI from your environment variables
 const uri = process.env.MONGODB_URI;
 
 if (!uri) {
@@ -10,28 +9,27 @@ if (!uri) {
 let client;
 let clientPromise;
 
-// Use MongoClient as a singleton to avoid multiple connections in development
-if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClient) {
-    client = new MongoClient(uri);
-    global._mongoClient = client.connect();
-  }
-  clientPromise = global._mongoClient;
-} else {
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
+// Reuse client across all environments
+if (!global._mongoClientPromise) {
+  client = new MongoClient(uri, {
+    maxPoolSize: 10, // Limit connection pool for serverless
+    minPoolSize: 1,
+    connectTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 10000,
+  });
+  global._mongoClientPromise = client.connect();
 }
+clientPromise = global._mongoClientPromise;
 
-// Connect to MongoDB and get the DB instance
 export async function connectDB() {
   try {
-    const client = await clientPromise; // Wait for connection
+    const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
-    return db; // Return the database instance
+    return db;
   } catch (error) {
-    console.error("MongoDB connection error:", error.message);
+    console.error("MongoDB connection error:", error.message, error.stack);
     throw error;
   }
 }
 
-export default clientPromise; // Default export for other modules to use
+export default clientPromise;

@@ -12,12 +12,27 @@ export default function OwnerPaymentsPage() {
   useEffect(() => {
     const fetchPayments = async () => {
       try {
-        const res = await fetch("/api/owner/payments");
-        if (!res.ok) throw new Error("Failed to fetch payments");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const res = await fetch("/api/owner/payments", {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.details || "Failed to fetch payments");
+        }
         const data = await res.json();
         setPayments(data);
       } catch (err) {
-        setError(err.message);
+        console.error("Client-side fetch error:", err.message, err.stack);
+        if (err.name === "AbortError") {
+          setError("Request timed out. Please try again.");
+        } else {
+          setError(err.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -36,7 +51,6 @@ export default function OwnerPaymentsPage() {
     <ProtectedRoute allowedRoles={["coach", "owner"]} redirectTo="/auth/login">
       <main className="p-6">
         <DashboardHeader title="Rental Payments" />
-
         {payments.length === 0 ? (
           <p className="text-gray-500">No payments found.</p>
         ) : (
