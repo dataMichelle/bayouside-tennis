@@ -138,7 +138,7 @@ export default function ReservationsPage() {
     <PageContainer title="Your Reservations">
       {fetchError && <p className="text-red-600">Error: {fetchError}</p>}
       {bookings.length === 0 && !fetchError && (
-        <p className="text-gray-600">No Reservations</p>
+        <p className="text-gray-600">No Reservations Found</p>
       )}{" "}
       {bookings.length > 0 && (
         <ul className="space-y-4">
