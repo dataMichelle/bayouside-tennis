@@ -24,15 +24,18 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    console.log("Signup initiated", { name, email, phone, role });
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
+      console.error("Passwords do not match", { password, confirmPassword });
       return;
     }
 
     let userCredential;
     try {
+      console.log("Creating Firebase user...");
       // Create Firebase user
       try {
         userCredential = await createUserWithEmailAndPassword(
@@ -40,67 +43,30 @@ export default function SignupPage() {
           email,
           password
         );
+        console.log("Firebase user created:", userCredential.user.uid);
       } catch (firebaseError) {
-        console.error("Firebase authentication error:", {
-          code: firebaseError.code || "No code",
-          message: firebaseError.message || "No message",
-          name: firebaseError.name || "Unknown",
-          stack: firebaseError.stack || "No stack",
-          rawError: JSON.stringify(
-            firebaseError,
-            Object.getOwnPropertyNames(firebaseError)
-          ),
-          email,
-        });
-
-        let userErrorMessage;
-        switch (firebaseError.code) {
-          case "auth/email-already-in-use":
-            userErrorMessage =
-              "This email is already registered. Please log in or use a different email.";
-            break;
-          case "auth/invalid-email":
-            userErrorMessage = "Invalid email format.";
-            break;
-          case "auth/weak-password":
-            userErrorMessage =
-              "Password is too weak. Please use a stronger password.";
-            break;
-          case "auth/network-request-failed":
-            userErrorMessage =
-              "Network error. Please check your connection and try again.";
-            break;
-          default:
-            userErrorMessage = "Failed to create account. Please try again.";
-        }
-        throw new Error(userErrorMessage);
+        console.error("Firebase authentication error:", firebaseError);
+        throw new Error("Failed to create Firebase user");
       }
 
       const uid = userCredential.user.uid;
-      console.log("Firebase user created:", { uid, email });
+      console.log("Firebase user created with UID:", uid);
 
-      // Send user data to /api/signup with retry logic
+      // Send user data to /api/auth/signup with retry logic
       const payload = { name, email, phone, uid, role };
-      let result;
       let res;
       let attempts = 3;
-      let delay = 500; // Reduced delay to minimize token expiration
-      const requestId = uuidv4(); // Unique ID for tracing
+      let delay = 500;
+      const requestId = uuidv4();
+      console.log("Sending user data to /api/auth/signup:", { payload });
 
       while (attempts > 0) {
-        const attemptTimestamp = new Date().toISOString();
         console.log(
-          `Initiating /api/signup request (attempt ${4 - attempts}):`,
-          {
-            requestId,
-            email,
-            attemptTimestamp,
-            payload,
-          }
+          `Attempt ${4 - attempts}: Sending data to /api/auth/signup`
         );
 
         try {
-          res = await fetch("/api/signup", {
+          res = await fetch("/api/auth/signup", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -108,14 +74,9 @@ export default function SignupPage() {
 
           const contentType = res.headers.get("content-type");
           console.log(
-            `Received response from /api/signup (attempt ${4 - attempts}):`,
-            {
-              requestId,
-              status: res.status,
-              statusText: res.statusText,
-              contentType,
-              url: res.url,
-            }
+            `Response from /api/auth/signup (attempt ${4 - attempts}):`,
+            res.status,
+            contentType
           );
 
           if (
@@ -123,55 +84,21 @@ export default function SignupPage() {
             contentType &&
             contentType.includes("application/json")
           ) {
-            result = await res.json();
-            console.log(
-              `Successfully parsed JSON response from /api/signup (attempt ${
-                4 - attempts
-              }):`,
-              {
-                requestId,
-                result,
-              }
-            );
+            const result = await res.json();
+            console.log("Successfully created user in the backend:", result);
             break; // Success, exit retry loop
           } else {
             const responseText = await res.text();
-            const headers = {};
-            res.headers.forEach((value, key) => {
-              headers[key] = value;
-            });
-            result = { error: responseText || "Unknown server error" };
             console.error(
-              `Non-JSON or error response from /api/signup (attempt ${
-                4 - attempts
-              }):`,
-              {
-                requestId,
-                url: res.url,
-                method: "POST",
-                status: res.status,
-                statusText: res.statusText,
-                contentType,
-                headers,
-                requestBody: JSON.stringify(payload),
-                attemptTimestamp,
-                responseText:
-                  responseText.length > 500
-                    ? responseText.slice(0, 500) + "..."
-                    : responseText,
-                email,
-              }
+              "API error response from /api/auth/signup:",
+              responseText
             );
             if (res.status === 404) {
-              console.error(
-                `API endpoint /api/signup not found (attempt ${
-                  4 - attempts
-                }). Check Netlify deployment, ensure app/api/signup/route.js exists and is committed, verify netlify.toml configuration, and confirm environment variables.`
-              );
+              console.error("API endpoint not found, retrying...");
               attempts--;
               if (attempts > 0) {
                 console.log(
-                  `Retrying /api/signup in ${delay}ms... (${attempts} attempts left)`
+                  `Retrying in ${delay}ms... (${attempts} attempts left)`
                 );
                 await new Promise((resolve) => setTimeout(resolve, delay));
                 delay *= 2;
@@ -182,121 +109,23 @@ export default function SignupPage() {
           }
         } catch (fetchError) {
           console.error(
-            `Fetch error for /api/signup (attempt ${4 - attempts}):`,
-            {
-              requestId,
-              message: fetchError.message || "No message",
-              stack: fetchError.stack || "No stack",
-              name: fetchError.name || "Unknown",
-              requestBody: JSON.stringify(payload),
-              attemptTimestamp,
-              email,
-            }
+            "Fetch error during /api/auth/signup attempt:",
+            fetchError
           );
           attempts--;
           if (attempts > 0) {
             console.log(
-              `Retrying /api/signup in ${delay}ms... (${attempts} attempts left)`
+              `Retrying in ${delay}ms... (${attempts} attempts left)`
             );
             await new Promise((resolve) => setTimeout(resolve, delay));
             delay *= 2;
             continue;
           }
-          result = {
-            error: fetchError.message || "Network error during signup",
-          };
-          res = { ok: false, status: 0, statusText: "Network Error" };
-          break;
+          setError("Network error during signup");
         }
       }
-
-      // Check for API errors
-      if (!res.ok) {
-        console.error("Signup API failed:", {
-          requestId,
-          error: result.error || "No error message",
-          status: res.status,
-          statusText: res.statusText,
-          result,
-          requestBody: JSON.stringify(payload),
-          finalTimestamp: new Date().toISOString(),
-          email,
-        });
-        // Clean up Firebase user on API failure
-        try {
-          // Refresh token to avoid auth/user-token-expired
-          await userCredential.user.getIdToken(true);
-          await userCredential.user.delete();
-          console.log("Cleaned up Firebase user due to /api/signup failure:", {
-            requestId,
-            uid,
-            email,
-          });
-        } catch (deleteError) {
-          console.error("Failed to delete Firebase user after API error:", {
-            requestId,
-            message: deleteError.message || "No message",
-            stack: deleteError.stack || "No stack",
-            code: deleteError.code || "No code",
-            name: deleteError.name || "Unknown",
-            email,
-          });
-        }
-        throw new Error(
-          res.status === 404
-            ? "Signup server endpoint not found. Please try again later or contact support."
-            : result.error ||
-              "Signup API request failed. Please check server logs."
-        );
-      }
-
-      console.log("Signup successful:", {
-        requestId,
-        userId: result.userId,
-        email,
-        role,
-      });
-
-      // Show success toast and delay redirect
-      toast.success("Signup successful! Redirecting...", {
-        duration: 3000,
-        icon: "✅",
-        style: { background: "#f0fff4", color: "#2f855a" },
-        position: "top-center",
-      });
-
-      // Delay redirect to ensure MongoDB sync and Firebase state propagation
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
     } catch (err) {
-      console.error("Signup error:", {
-        message: err.message || "Unknown error",
-        stack: err.stack || "No stack trace",
-        code: err.code || "No code",
-        name: err.name || "Unknown",
-        email,
-      });
-      // Clean up Firebase user on general error (if created)
-      if (userCredential && userCredential.user) {
-        try {
-          // Refresh token to avoid auth/user-token-expired
-          await userCredential.user.getIdToken(true);
-          await userCredential.user.delete();
-          console.log("Cleaned up Firebase user due to general error:", {
-            uid: userCredential.user.uid,
-            email,
-          });
-        } catch (deleteError) {
-          console.error("Failed to delete Firebase user after general error:", {
-            message: deleteError.message || "No message",
-            stack: deleteError.stack || "No stack",
-            code: deleteError.code || "No code",
-            name: deleteError.name || "Unknown",
-            email,
-          });
-        }
-      }
+      console.error("Signup process error:", err);
       setError(
         err.message || "Something went wrong during signup. Please try again."
       );

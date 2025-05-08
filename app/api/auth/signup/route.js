@@ -3,13 +3,26 @@ import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
+  console.log("Received request to /api/signup:", {
+    method: request.method,
+    url: request.url,
+  });
+
   try {
     const body = await request.json();
+    console.log("Request body:", body);
+
     const { name, email, phone, uid, role } = body;
 
-    // Strict validation
+    // Validation
     if (!name || !email || !phone || !uid || !role) {
-      console.error("Missing fields:", { name, email, phone, uid, role });
+      console.error("Missing required fields:", {
+        name,
+        email,
+        phone,
+        uid,
+        role,
+      });
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -31,12 +44,15 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
+    // Connect to MongoDB
     const db = await connectDB();
+    console.log("Connected to MongoDB");
+
     const users = db.collection("users");
 
     const existingUser = await users.findOne({ email });
     if (existingUser) {
-      console.error("Email already exists in MongoDB:", email);
+      console.error("Email already exists:", email);
       return NextResponse.json(
         { error: "Email already exists" },
         { status: 400 }
@@ -66,11 +82,7 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (err) {
-    console.error("❌ Signup error:", {
-      message: err.message,
-      stack: err.stack,
-      name: err.name,
-    });
+    console.error("Signup API error:", err);
     return NextResponse.json(
       { error: "Internal server error", details: err.message },
       { status: 500 }
