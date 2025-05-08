@@ -5,16 +5,17 @@ import { NextResponse } from "next/server";
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, phone, uid, role } = body;
+    const { name, email, phone, uid, role, password } = body;
 
     // Strict validation
-    if (!name || !email || !phone || !uid || !role) {
+    if (!name || !email || !phone || !uid || !role || !password) {
       console.error("Missing fields:", {
         name,
         email,
         phone,
         uid,
         role,
+        password,
         timestamp: new Date().toISOString(),
       });
       return NextResponse.json(
@@ -69,6 +70,7 @@ export async function POST(request) {
       email,
       phone,
       role,
+      password, // Store password as plaintext
       createdAt: new Date(),
       updatedAt: new Date(),
     };

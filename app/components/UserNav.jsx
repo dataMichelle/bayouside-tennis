@@ -17,8 +17,8 @@ export default function UserNav({ closeMenu, isMobile }) {
 
   const links = useMemo(() => {
     if (loading) return getUserNavLinks(); // Fallback defaults to "player" + not logged in
-    return getUserNavLinks(userRole, isLoggedIn);
-  }, [loading, userRole, isLoggedIn]);
+    return getUserNavLinks(userRole, isLoggedIn, closeMenu);
+  }, [loading, userRole, isLoggedIn, closeMenu]);
 
   const handleLogout = () => {
     localStorage.removeItem("userRole");
@@ -36,11 +36,6 @@ export default function UserNav({ closeMenu, isMobile }) {
             onClick={() => {
               if (typeof closeMenu === "function") {
                 closeMenu();
-              } else if (process.env.NODE_ENV === "development") {
-                console.warn(
-                  "UserNav: closeMenu is not a function. Ensure the parent component provides a valid closeMenu prop for mobile menu functionality.",
-                  { closeMenu, isMobile }
-                );
               }
               handleLogout();
             }}
