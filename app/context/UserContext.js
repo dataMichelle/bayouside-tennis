@@ -19,7 +19,7 @@ export const UserProvider = ({ children }) => {
       if (firebaseUser) {
         const fetchUserData = async (retries = 3, delay = 1000) => {
           try {
-            const token = await firebaseUser.getIdToken();
+            const token = await firebaseUser.getIdToken(true);
             const res = await fetch("/api/users", {
               headers: { Authorization: `Bearer ${token}` },
             });
