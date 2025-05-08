@@ -5,7 +5,6 @@ import { ObjectId } from "mongodb";
 export async function GET() {
   try {
     const db = await connectDB();
-    console.log("Connected to MongoDB");
 
     const payments = await db
       .collection("payments")

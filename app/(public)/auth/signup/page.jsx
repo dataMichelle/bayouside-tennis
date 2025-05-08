@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
+  signOut,
+} from "firebase/auth";
+import SignUp from "@/components/SignUp";
+import { toast } from "react-hot-toast";
 import PageContainer from "@/components/PageContainer";
 import Link from "next/link";
-import { toast } from "react-hot-toast";
-import { useRouter } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -20,51 +24,100 @@ export default function SignupPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Sign out any existing Firebase user on page load
+  useEffect(() => {
+    if (auth.currentUser) {
+      signOut(auth).catch(() => {});
+    }
+  }, []);
+
   const handleSignup = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    console.log("Signup initiated", { name, email, phone, role });
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
-      console.error("Passwords do not match", { password, confirmPassword });
       return;
     }
 
-    let userCredential;
     try {
-      console.log("Creating Firebase user...");
-      // Create Firebase user
-      try {
-        userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-        console.log("Firebase user created:", userCredential.user.uid);
-      } catch (firebaseError) {
-        console.error("Firebase authentication error:", firebaseError);
-        throw new Error("Failed to create Firebase user");
+      const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+      let userCredential;
+      let uid;
+
+      if (signInMethods.length > 0) {
+        const existsRes = await fetch("/api/users/exists", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const existsResult = await existsRes.json();
+        if (!existsRes.ok) {
+          setError(
+            existsResult.error ||
+              "Failed to check user existence. Please try again."
+          );
+          setLoading(false);
+          return;
+        }
+        if (existsResult.exists) {
+          setError(
+            "A user with this email already exists. Please log in or use a different email."
+          );
+          setLoading(false);
+          return;
+        }
+        if (auth.currentUser) {
+          uid = auth.currentUser.uid;
+        } else {
+          setError(
+            "Firebase user exists but is not signed in. Please log in or use a different email."
+          );
+          setLoading(false);
+          return;
+        }
+      } else {
+        try {
+          userCredential = await createUserWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+          uid = userCredential.user.uid;
+        } catch (firebaseError) {
+          let userErrorMessage;
+          switch (firebaseError.code) {
+            case "auth/email-already-in-use":
+              userErrorMessage =
+                "This email is already registered. Please log in or use a different email.";
+              break;
+            case "auth/invalid-email":
+              userErrorMessage = "Invalid email format.";
+              break;
+            case "auth/weak-password":
+              userErrorMessage =
+                "Password is too weak. Please use a stronger password.";
+              break;
+            case "auth/network-request-failed":
+              userErrorMessage =
+                "Network error. Please check your connection and try again.";
+              break;
+            default:
+              userErrorMessage = "Failed to create account. Please try again.";
+          }
+          throw new Error(userErrorMessage);
+        }
       }
 
-      const uid = userCredential.user.uid;
-      console.log("Firebase user created with UID:", uid);
-
-      // Send user data to /api/auth/signup with retry logic
       const payload = { name, email, phone, uid, role };
+      let result;
       let res;
       let attempts = 3;
       let delay = 500;
-      const requestId = uuidv4();
-      console.log("Sending user data to /api/auth/signup:", { payload });
 
       while (attempts > 0) {
-        console.log(
-          `Attempt ${4 - attempts}: Sending data to /api/auth/signup`
-        );
-
         try {
           res = await fetch("/api/auth/signup", {
             method: "POST",
@@ -73,59 +126,80 @@ export default function SignupPage() {
           });
 
           const contentType = res.headers.get("content-type");
-          console.log(
-            `Response from /api/auth/signup (attempt ${4 - attempts}):`,
-            res.status,
-            contentType
-          );
 
           if (
             res.ok &&
             contentType &&
             contentType.includes("application/json")
           ) {
-            const result = await res.json();
-            console.log("Successfully created user in the backend:", result);
-            break; // Success, exit retry loop
+            result = await res.json();
+            break;
           } else {
             const responseText = await res.text();
-            console.error(
-              "API error response from /api/auth/signup:",
-              responseText
-            );
+            result = { error: responseText || "Unknown server error" };
             if (res.status === 404) {
-              console.error("API endpoint not found, retrying...");
               attempts--;
               if (attempts > 0) {
-                console.log(
-                  `Retrying in ${delay}ms... (${attempts} attempts left)`
-                );
                 await new Promise((resolve) => setTimeout(resolve, delay));
                 delay *= 2;
                 continue;
               }
             }
-            break; // Non-404 error, break retry loop
+            break;
           }
-        } catch (fetchError) {
-          console.error(
-            "Fetch error during /api/auth/signup attempt:",
-            fetchError
-          );
+        } catch {
           attempts--;
           if (attempts > 0) {
-            console.log(
-              `Retrying in ${delay}ms... (${attempts} attempts left)`
-            );
             await new Promise((resolve) => setTimeout(resolve, delay));
             delay *= 2;
             continue;
           }
-          setError("Network error during signup");
+          result = {
+            error: "Network error during signup",
+          };
+          res = { ok: false, status: 0, statusText: "Network Error" };
+          break;
         }
       }
+
+      if (!res.ok) {
+        if (userCredential && userCredential.user) {
+          try {
+            await userCredential.user.getIdToken(true);
+            await userCredential.user.delete();
+          } catch {}
+        }
+        throw new Error(
+          res.status === 404
+            ? "Signup server endpoint not found. Please try again later or contact support."
+            : result.error ||
+              "Signup API request failed. Please check server logs."
+        );
+      }
+
+      toast.success("Signup successful! Redirecting...", {
+        duration: 3000,
+        icon: "✅",
+        style: { background: "#f0fff4", color: "#2f855a" },
+        position: "top-center",
+      });
+
+      setTimeout(() => {
+        if (role === "player") {
+          router.push("/players/info");
+        } else if (role === "owner" || role === "coach") {
+          router.push("/dashboard");
+        } else {
+          router.push("/login");
+        }
+      }, 2000);
     } catch (err) {
-      console.error("Signup process error:", err);
+      if (userCredential && userCredential.user) {
+        try {
+          await userCredential.user.getIdToken(true);
+          await userCredential.user.delete();
+        } catch {}
+      }
       setError(
         err.message || "Something went wrong during signup. Please try again."
       );
@@ -136,117 +210,29 @@ export default function SignupPage() {
 
   return (
     <PageContainer title="Sign Up">
-      <form onSubmit={handleSignup} className="space-y-6 max-w-md mx-auto">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium mb-1">
-            Full Name
-          </label>
-          <input
-            type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-600"
-            placeholder="Jane Doe"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium mb-1">
-            Phone Number
-          </label>
-          <input
-            type="tel"
-            id="phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-600"
-            placeholder="123-456-7890"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-1">
-            Email Address
-          </label>
-          <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-600"
-            placeholder="you@example.com"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-1">
-            Password
-          </label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-600"
-            placeholder="••••••••"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="confirmPassword"
-            className="block text-sm font-medium mb-1"
-          >
-            Confirm Password
-          </label>
-          <input
-            type="password"
-            id="confirmPassword"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-600"
-            placeholder="••••••••"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="role" className="block text-sm font-medium mb-1">
-            Role
-          </label>
-          <select
-            id="role"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-600"
-          >
-            <option value="player">Player</option>
-            <option value="coach">Coach</option>
-          </select>
-        </div>
-
-        {error && <p className="text-red-500 text-center">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          {loading ? "Signing up..." : "Sign Up"}
-        </button>
-
-        <p className="mt-4 text-center text-gray-600">
-          Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 hover:underline">
-            Log In
-          </Link>
-        </p>
-      </form>
+      <SignUp
+        handleSignUp={handleSignup}
+        name={name}
+        setName={setName}
+        email={email}
+        setEmail={setEmail}
+        phone={phone}
+        setPhone={setPhone}
+        password={password}
+        setPassword={setPassword}
+        confirmPassword={confirmPassword}
+        setConfirmPassword={setConfirmPassword}
+        role={role}
+        setRole={setRole}
+        error={error}
+        loading={loading}
+      />
+      <p className="mt-4 text-center text-gray-600">
+        Already have an account?{" "}
+        <Link href="/login" className="text-blue-600 hover:underline">
+          Log In
+        </Link>
+      </p>
     </PageContainer>
   );
 }

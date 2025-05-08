@@ -11,7 +11,6 @@ export async function POST(request) {
 
     const user = await adminAuth.getUserByEmail(email);
     await adminAuth.deleteUser(user.uid);
-    console.log("Firebase user deleted:", { email, uid: user.uid });
 
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (error) {

@@ -13,7 +13,7 @@ export async function getUserByFirebaseUid(firebaseUid) {
     if (!user) {
       console.warn("No user found for firebaseUid:", firebaseUid);
     } else {
-      console.log("User found:", { firebaseUid, email: user.email });
+      // User found, no further action needed
     }
 
     return user;
@@ -46,7 +46,7 @@ export async function getUserById(userId) {
     if (!user) {
       console.warn("No user found for userId:", userId);
     } else {
-      console.log("User found:", { userId, email: user.email });
+      // User found, no further action needed
     }
 
     return user;
@@ -74,7 +74,6 @@ export async function getAllUsersByRole(role) {
     const db = await connectDB();
     const users = await db.collection("users").find({ role }).toArray();
 
-    console.log(`Found ${users.length} users with role:`, role);
     return users;
   } catch (error) {
     console.error("Error in getAllUsersByRole:", {

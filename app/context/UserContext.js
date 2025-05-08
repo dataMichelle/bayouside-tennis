@@ -16,6 +16,18 @@ export const UserProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
 
+      // Skip fetch on signup page to avoid premature API calls
+      const isSignupPage =
+        typeof window !== "undefined" &&
+        window.location.pathname === "/auth/signup";
+      if (isSignupPage) {
+        setUserData(null);
+        setRole(null);
+        localStorage.removeItem("userRole");
+        setLoading(false);
+        return;
+      }
+
       if (firebaseUser) {
         const fetchUserData = async (retries = 3, delay = 1000) => {
           try {
@@ -39,6 +51,7 @@ export const UserProvider = ({ children }) => {
                 status: res.status,
                 uid: firebaseUser.uid,
                 contentType,
+                timestamp: new Date().toISOString(),
               });
               throw new Error(
                 `Failed to fetch user data: ${res.status} ${
@@ -48,6 +61,7 @@ export const UserProvider = ({ children }) => {
             }
 
             const data = await res.json();
+
             setUserData({
               id: data._id,
               email: firebaseUser.email,
@@ -55,10 +69,6 @@ export const UserProvider = ({ children }) => {
             });
             setRole(data.role || "player");
             localStorage.setItem("userRole", data.role || "player");
-            console.log("User data fetched successfully:", {
-              uid: firebaseUser.uid,
-              role: data.role,
-            });
           } catch (err) {
             console.error("UserContext - Fetch user data failed:", {
               message: err.message || "Unknown error",
@@ -67,9 +77,9 @@ export const UserProvider = ({ children }) => {
               name: err.name || "Unknown",
               uid: firebaseUser.uid,
               retries,
+              timestamp: new Date().toISOString(),
             });
             if (retries > 0 && err.message.includes("User not found")) {
-              console.log(`Retrying fetch (${retries} attempts left)...`);
               await new Promise((resolve) => setTimeout(resolve, delay));
               return fetchUserData(retries - 1, delay * 2);
             }
@@ -89,7 +99,9 @@ export const UserProvider = ({ children }) => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return (

@@ -3,25 +3,19 @@ import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
-  console.log("Received request to /api/signup:", {
-    method: request.method,
-    url: request.url,
-  });
-
   try {
     const body = await request.json();
-    console.log("Request body:", body);
-
     const { name, email, phone, uid, role } = body;
 
-    // Validation
+    // Strict validation
     if (!name || !email || !phone || !uid || !role) {
-      console.error("Missing required fields:", {
+      console.error("Missing fields:", {
         name,
         email,
         phone,
         uid,
         role,
+        timestamp: new Date().toISOString(),
       });
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -31,7 +25,10 @@ export async function POST(request) {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.error("Invalid email format:", email);
+      console.error("Invalid email format:", {
+        email,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json(
         { error: "Invalid email format" },
         { status: 400 }
@@ -40,21 +37,27 @@ export async function POST(request) {
 
     const validRoles = ["player", "coach", "owner"];
     if (!validRoles.includes(role)) {
-      console.error("Invalid role:", role);
+      console.error("Invalid role:", {
+        role,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Connect to MongoDB
     const db = await connectDB();
-    console.log("Connected to MongoDB");
-
     const users = db.collection("users");
 
-    const existingUser = await users.findOne({ email });
+    const existingUser = await users.findOne({
+      $or: [{ email }, { firebaseUid: uid }],
+    });
     if (existingUser) {
-      console.error("Email already exists:", email);
+      console.error("User already exists in MongoDB:", {
+        email,
+        uid,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json(
-        { error: "Email already exists" },
+        { error: "User with this email or UID already exists" },
         { status: 400 }
       );
     }
@@ -71,20 +74,23 @@ export async function POST(request) {
     };
 
     const result = await users.insertOne(newUser);
-    console.log("User created in MongoDB:", {
-      userId: result.insertedId,
-      email,
-      role,
-    });
 
     return NextResponse.json(
       { message: "User created", userId: result.insertedId },
       { status: 201 }
     );
   } catch (err) {
-    console.error("Signup API error:", err);
+    console.error("❌ Signup error:", {
+      message: err.message || "Unknown error",
+      stack: err.stack || "No stack",
+      name: err.name || "Unknown",
+      timestamp: new Date().toISOString(),
+    });
     return NextResponse.json(
-      { error: "Internal server error", details: err.message },
+      {
+        error: "Internal server error",
+        details: err.message || "Unknown error",
+      },
       { status: 500 }
     );
   }

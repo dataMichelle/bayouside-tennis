@@ -35,10 +35,6 @@ export async function GET(request) {
       );
     }
 
-    console.log("User fetched successfully:", {
-      firebaseUid,
-      email: user.email,
-    });
     return NextResponse.json({
       _id: user._id.toString(),
       role: user.role || "player",
