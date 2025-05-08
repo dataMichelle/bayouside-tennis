@@ -17,39 +17,69 @@ export const UserProvider = ({ children }) => {
       setFirebaseUser(firebaseUser);
 
       if (firebaseUser) {
-        try {
-          const token = await firebaseUser.getIdToken();
+        const fetchUserData = async (retries = 3, delay = 1000) => {
+          try {
+            const token = await firebaseUser.getIdToken();
+            const res = await fetch("/api/users", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
 
-          const res = await fetch("/api/users", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error(
-              "UserContext - API response error:",
-              errorText,
-              "Status:",
-              res.status
-            );
-            throw new Error(
-              `Failed to fetch user data: ${res.status} ${errorText}`
-            );
+            let errorData;
+            if (!res.ok) {
+              const contentType = res.headers.get("content-type");
+              if (contentType && contentType.includes("application/json")) {
+                errorData = await res.json();
+              } else {
+                errorData = {
+                  error: (await res.text()) || "Non-JSON response",
+                };
+              }
+              console.error("UserContext - API response error:", {
+                errorData,
+                status: res.status,
+                uid: firebaseUser.uid,
+                contentType,
+              });
+              throw new Error(
+                `Failed to fetch user data: ${res.status} ${
+                  errorData.error || "Unknown error"
+                }`
+              );
+            }
+
+            const data = await res.json();
+            setUserData({
+              id: data._id,
+              email: firebaseUser.email,
+              role: data.role || "player",
+            });
+            setRole(data.role || "player");
+            localStorage.setItem("userRole", data.role || "player");
+            console.log("User data fetched successfully:", {
+              uid: firebaseUser.uid,
+              role: data.role,
+            });
+          } catch (err) {
+            console.error("UserContext - Fetch user data failed:", {
+              message: err.message || "Unknown error",
+              stack: err.stack || "No stack",
+              code: err.code || "No code",
+              name: err.name || "Unknown",
+              uid: firebaseUser.uid,
+              retries,
+            });
+            if (retries > 0 && err.message.includes("User not found")) {
+              console.log(`Retrying fetch (${retries} attempts left)...`);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              return fetchUserData(retries - 1, delay * 2);
+            }
+            setUserData(null);
+            setRole("player");
+            localStorage.setItem("userRole", "player");
           }
-          const data = await res.json();
+        };
 
-          setUserData({
-            id: data._id, // MongoDB _id, e.g., "67fff934f37c72f8de61ee83"
-            email: firebaseUser.email,
-            role: data.role || "player",
-          });
-          setRole(data.role || "player");
-          localStorage.setItem("userRole", data.role || "player");
-        } catch (err) {
-          console.error("UserContext - Fetch user data failed:", err.message);
-          setUserData(null);
-          setRole("player");
-          localStorage.setItem("userRole", "player");
-        }
+        await fetchUserData();
       } else {
         setUserData(null);
         setRole(null);
@@ -59,9 +89,7 @@ export const UserProvider = ({ children }) => {
       setLoading(false);
     });
 
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   return (

@@ -1,4 +1,3 @@
-// app/api/signup/route.js
 import { connectDB } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
@@ -6,10 +5,10 @@ import { NextResponse } from "next/server";
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, phone, password, uid, role } = body;
+    const { name, email, phone, uid, role } = body;
 
     // Strict validation
-    if (!name || !email || !phone || !password || !uid || !role) {
+    if (!name || !email || !phone || !uid || !role) {
       console.error("Missing fields:", { name, email, phone, uid, role });
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -37,6 +36,7 @@ export async function POST(request) {
 
     const existingUser = await users.findOne({ email });
     if (existingUser) {
+      console.error("Email already exists in MongoDB:", email);
       return NextResponse.json(
         { error: "Email already exists" },
         { status: 400 }
@@ -49,22 +49,30 @@ export async function POST(request) {
       name,
       email,
       phone,
-      password,
       role,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     const result = await users.insertOne(newUser);
+    console.log("User created in MongoDB:", {
+      userId: result.insertedId,
+      email,
+      role,
+    });
 
     return NextResponse.json(
       { message: "User created", userId: result.insertedId },
       { status: 201 }
     );
   } catch (err) {
-    console.error("❌ Signup error:", err);
+    console.error("❌ Signup error:", {
+      message: err.message,
+      stack: err.stack,
+      name: err.name,
+    });
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: err.message },
       { status: 500 }
     );
   }

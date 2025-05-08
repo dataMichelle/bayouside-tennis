@@ -9,10 +9,9 @@ if (!uri) {
 let client;
 let clientPromise;
 
-// Reuse client across all environments
 if (!global._mongoClientPromise) {
   client = new MongoClient(uri, {
-    maxPoolSize: 10, // Limit connection pool for serverless
+    maxPoolSize: 10,
     minPoolSize: 1,
     connectTimeoutMS: 10000,
     serverSelectionTimeoutMS: 10000,
@@ -25,6 +24,7 @@ export async function connectDB() {
   try {
     const client = await clientPromise;
     const db = client.db("bayou-side-tennis");
+    console.log("Connected to MongoDB");
     return db;
   } catch (error) {
     console.error("MongoDB connection error:", error.message, error.stack);
